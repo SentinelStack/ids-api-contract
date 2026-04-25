@@ -3,13 +3,13 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>ro.puk3p.ids</groupId>
+    <groupId>ro.puk3p.sentinel</groupId>
     <artifactId>ids-api-contract</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
 
     <name>ids-api-contract</name>
-    <description>OpenAPI contract for the IDS platform backend</description>
+    <description>OpenAPI contract for the Sentinel IDS platform backend</description>
 
     <build>
         <resources>

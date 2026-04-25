@@ -1,0 +1,108 @@
+Alert:
+  type: object
+  required:
+    - id
+    - source
+    - deviceId
+    - type
+    - severity
+    - message
+    - detectedAt
+    - status
+  properties:
+    id:
+      type: string
+      example: "alert-001"
+    source:
+      type: string
+      example: "openwrt-edge-agent"
+    deviceId:
+      type: string
+      example: "router-01"
+    type:
+      type: string
+      example: "UDP_FLOOD"
+    severity:
+      type: string
+      enum: [LOW, MEDIUM, HIGH, CRITICAL]
+      example: "HIGH"
+    message:
+      type: string
+      example: "Suspicious UDP traffic spike detected"
+    sourceIp:
+      type: string
+      nullable: true
+      example: "192.168.1.120"
+    destinationIp:
+      type: string
+      nullable: true
+      example: "8.8.8.8"
+    destinationPort:
+      type: integer
+      format: int32
+      nullable: true
+      example: 53
+    detectedAt:
+      type: string
+      format: date-time
+      example: "2026-04-25T18:42:00Z"
+    status:
+      type: string
+      enum: [OPEN, ACKNOWLEDGED, RESOLVED]
+      example: "OPEN"
+    metadata:
+      type: object
+      additionalProperties: true
+      example:
+        packetRate: 4200
+        protocol: "UDP"
+
+AlertCreateRequest:
+  type: object
+  required:
+    - source
+    - deviceId
+    - type
+    - severity
+    - message
+    - detectedAt
+  properties:
+    source:
+      type: string
+      example: "openwrt-edge-agent"
+    deviceId:
+      type: string
+      example: "router-01"
+    type:
+      type: string
+      example: "UDP_FLOOD"
+    severity:
+      type: string
+      enum: [LOW, MEDIUM, HIGH, CRITICAL]
+      example: "HIGH"
+    message:
+      type: string
+      example: "Suspicious UDP traffic spike detected"
+    sourceIp:
+      type: string
+      nullable: true
+      example: "192.168.1.120"
+    destinationIp:
+      type: string
+      nullable: true
+      example: "8.8.8.8"
+    destinationPort:
+      type: integer
+      format: int32
+      nullable: true
+      example: 53
+    detectedAt:
+      type: string
+      format: date-time
+      example: "2026-04-25T18:42:00Z"
+    metadata:
+      type: object
+      additionalProperties: true
+      example:
+        packetRate: 4200
+        protocol: "UDP"

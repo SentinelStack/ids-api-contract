@@ -1,0 +1,50 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>ro.puk3p.ids</groupId>
+    <artifactId>ids-api-contract</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>ids-api-contract</name>
+    <description>OpenAPI contract for the IDS platform backend</description>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>openapi</directory>
+                <targetPath>openapi</targetPath>
+                <includes>
+                    <include>**/*</include>
+                </includes>
+            </resource>
+            <resource>
+                <directory>schemas</directory>
+                <targetPath>schemas</targetPath>
+                <includes>
+                    <include>**/*</include>
+                </includes>
+            </resource>
+            <resource>
+                <directory>examples</directory>
+                <targetPath>examples</targetPath>
+                <includes>
+                    <include>**/*</include>
+                </includes>
+            </resource>
+        </resources>
+    </build>
+
+    <distributionManagement>
+        <repository>
+            <id>nexus-releases</id>
+            <url>https://nexus.puk3p.online/repository/maven-releases/</url>
+        </repository>
+        <snapshotRepository>
+            <id>nexus-snapshots</id>
+            <url>https://nexus.puk3p.online/repository/maven-snapshots/</url>
+        </snapshotRepository>
+    </distributionManagement>
+</project>

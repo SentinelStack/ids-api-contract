@@ -1,0 +1,89 @@
+Device:
+  type: object
+  required:
+    - id
+    - hostname
+    - ipAddress
+    - status
+    - lastSeenAt
+  properties:
+    id:
+      type: string
+      example: "router-01"
+    hostname:
+      type: string
+      example: "openwrt-main"
+    ipAddress:
+      type: string
+      example: "192.168.1.1"
+    status:
+      type: string
+      enum: [ONLINE, OFFLINE, DEGRADED]
+      example: "ONLINE"
+    firmwareVersion:
+      type: string
+      nullable: true
+      example: "OpenWrt 23.05"
+    agentVersion:
+      type: string
+      nullable: true
+      example: "1.0.0"
+    cpuUsage:
+      type: number
+      format: double
+      nullable: true
+      example: 27.5
+    memoryUsage:
+      type: number
+      format: double
+      nullable: true
+      example: 43.2
+    lastSeenAt:
+      type: string
+      format: date-time
+      example: "2026-04-25T18:50:00Z"
+
+DeviceHeartbeatRequest:
+  type: object
+  required:
+    - deviceId
+    - hostname
+    - ipAddress
+    - status
+    - lastSeenAt
+  properties:
+    deviceId:
+      type: string
+      example: "router-01"
+    hostname:
+      type: string
+      example: "openwrt-main"
+    ipAddress:
+      type: string
+      example: "192.168.1.1"
+    status:
+      type: string
+      enum: [ONLINE, OFFLINE, DEGRADED]
+      example: "ONLINE"
+    firmwareVersion:
+      type: string
+      nullable: true
+      example: "OpenWrt 23.05"
+    agentVersion:
+      type: string
+      nullable: true
+      example: "1.0.0"
+    cpuUsage:
+      type: number
+      format: double
+      nullable: true
+      example: 27.5
+    memoryUsage:
+      type: number
+      format: double
+      nullable: true
+      example: 43.2
+    lastSeenAt:
+      type: string
+      format: date-time
+      example: "2026-04-25T18:50:00Z"

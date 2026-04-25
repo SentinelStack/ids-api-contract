@@ -1,0 +1,263 @@
+openapi: 3.0.3
+info:
+  title: IDS Platform Backend API
+  version: 1.0.0
+  description: API for alerts, devices and reports in the OpenWrt IDS/IPS platform.
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+tags:
+  - name: Alerts
+    description: Alert ingestion and retrieval
+  - name: Devices
+    description: Device and agent status management
+  - name: Reports
+    description: Report creation and download
+
+paths:
+  /api/alerts:
+    post:
+      tags:
+        - Alerts
+      summary: Create a new alert
+      operationId: createAlert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertCreateRequest'
+            examples:
+              default:
+                summary: Example alert creation payload
+                value:
+                  source: "openwrt-edge-agent"
+                  deviceId: "router-01"
+                  type: "UDP_FLOOD"
+                  severity: "HIGH"
+                  message: "Suspicious UDP traffic spike detected"
+                  sourceIp: "192.168.1.120"
+                  destinationIp: "8.8.8.8"
+                  destinationPort: 53
+                  detectedAt: "2026-04-25T18:42:00Z"
+                  metadata:
+                    packetRate: 4200
+                    protocol: "UDP"
+      responses:
+        '201':
+          description: Alert created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alert'
+        '400':
+          description: Invalid request payload
+
+    get:
+      tags:
+        - Alerts
+      summary: Get all alerts
+      operationId: getAlerts
+      responses:
+        '200':
+          description: List of alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Alert'
+
+  /api/alerts/{id}:
+    get:
+      tags:
+        - Alerts
+      summary: Get alert by id
+      operationId: getAlertById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Alert identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Alert found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alert'
+        '404':
+          description: Alert not found
+
+  /api/devices/heartbeat:
+    post:
+      tags:
+        - Devices
+      summary: Register device heartbeat
+      operationId: registerDeviceHeartbeat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceHeartbeatRequest'
+            examples:
+              default:
+                summary: Example heartbeat payload
+                value:
+                  deviceId: "router-01"
+                  hostname: "openwrt-main"
+                  ipAddress: "192.168.1.1"
+                  status: "ONLINE"
+                  firmwareVersion: "OpenWrt 23.05"
+                  agentVersion: "1.0.0"
+                  cpuUsage: 27.5
+                  memoryUsage: 43.2
+                  lastSeenAt: "2026-04-25T18:50:00Z"
+      responses:
+        '200':
+          description: Heartbeat accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '400':
+          description: Invalid request payload
+
+  /api/devices:
+    get:
+      tags:
+        - Devices
+      summary: Get all devices
+      operationId: getDevices
+      responses:
+        '200':
+          description: List of devices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Device'
+
+  /api/devices/{id}:
+    get:
+      tags:
+        - Devices
+      summary: Get device by id
+      operationId: getDeviceById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Device identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Device found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '404':
+          description: Device not found
+
+  /api/reports:
+    post:
+      tags:
+        - Reports
+      summary: Create a new report request
+      operationId: createReport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportCreateRequest'
+            examples:
+              default:
+                summary: Example report creation payload
+                value:
+                  type: "ALERT_SUMMARY"
+                  format: "CSV"
+                  requestedBy: "admin"
+                  from: "2026-04-01T00:00:00Z"
+                  to: "2026-04-25T23:59:59Z"
+      responses:
+        '201':
+          description: Report request created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+        '400':
+          description: Invalid request payload
+
+  /api/reports/{id}:
+    get:
+      tags:
+        - Reports
+      summary: Get report by id
+      operationId: getReportById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Report identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Report found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+        '404':
+          description: Report not found
+
+  /api/reports/{id}/download:
+    get:
+      tags:
+        - Reports
+      summary: Download generated report
+      operationId: downloadReport
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Report identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Report download
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Report file not found
+
+components:
+  schemas:
+    Alert:
+      $ref: '../schemas/Alert.yaml#/Alert'
+    AlertCreateRequest:
+      $ref: '../schemas/Alert.yaml#/AlertCreateRequest'
+
+    Device:
+      $ref: '../schemas/Device.yaml#/Device'
+    DeviceHeartbeatRequest:
+      $ref: '../schemas/Device.yaml#/DeviceHeartbeatRequest'
+
+    Report:
+      $ref: '../schemas/Report.yaml#/Report'
+    ReportCreateRequest:
+      $ref: '../schemas/Report.yaml#/ReportCreateRequest'

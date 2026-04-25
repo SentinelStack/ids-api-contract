@@ -1,0 +1,15 @@
+{
+  "source": "openwrt-edge-agent",
+  "deviceId": "router-01",
+  "type": "UDP_FLOOD",
+  "severity": "HIGH",
+  "message": "Suspicious UDP traffic spike detected",
+  "sourceIp": "192.168.1.120",
+  "destinationIp": "8.8.8.8",
+  "destinationPort": 53,
+  "detectedAt": "2026-04-25T18:42:00Z",
+  "metadata": {
+    "packetRate": 4200,
+    "protocol": "UDP"
+  }
+}

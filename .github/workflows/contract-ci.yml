@@ -39,7 +39,7 @@ jobs:
 
       - name: Validate OpenAPI with Redocly
         run: |
-          redocly check openapi/ids-backend.yaml
+          redocly lint openapi/ids-backend.yaml
 
       - name: Bundle OpenAPI
         run: |

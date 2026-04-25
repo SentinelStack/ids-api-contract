@@ -1,0 +1,9 @@
+apis:
+  main:
+    root: ./openapi/ids-backend.yaml
+
+rules:
+  operation-summary: error
+  operation-operationId: error
+  operation-2xx-response: warn
+  no-unresolved-refs: error

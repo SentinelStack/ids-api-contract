@@ -37,7 +37,7 @@ jobs:
         run: |
           swagger-cli validate openapi/ids-backend.yaml
 
-      - name: Validate OpenAPI with Redocly
+      - name: Lint OpenAPI with Redocly
         run: |
           redocly lint openapi/ids-backend.yaml
 
@@ -83,6 +83,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
       - name: Setup Java
         uses: actions/setup-java@v4

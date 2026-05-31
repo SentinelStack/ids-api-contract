@@ -1,8 +1,10 @@
 openapi: 3.0.3
 info:
   title: IDS Platform Backend API
-  version: 1.0.0
-  description: API for alerts, devices and reports in the OpenWrt IDS/IPS platform.
+  version: 1.1.1
+  description: |-
+    API for the OpenWrt IDS/IPS platform backend (Sentinel). Exposes processed security telemetry produced by the edge agent: devices and heartbeats, alerts, aggregated traffic statistics and packet/forensics metadata.
+    Every successful response is wrapped in a standard envelope (`success`, `message`, `data`, `timestamp`). Resources and paged collections carry HATEOAS `links`. Errors return an `ErrorResponse`.
   license:
     name: Proprietary
 servers:
@@ -10,18 +12,141 @@ servers:
     description: Production backend server
 security: []
 tags:
+  - name: Index
+    description: Hypermedia entry point
+  - name: Devices
+    description: Device registration, heartbeat and status
   - name: Alerts
     description: Alert ingestion and retrieval
-  - name: Devices
-    description: Device and agent status management
-  - name: Reports
-    description: Report creation and download
+  - name: Traffic
+    description: Aggregated traffic statistics
+  - name: Forensics
+    description: Packet-level forensic metadata
 paths:
+  /api:
+    get:
+      tags:
+        - Index
+      summary: API hypermedia entry point
+      operationId: getApiIndex
+      responses:
+        '200':
+          description: Top-level links to the available collections and actions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/IndexResponse'
+  /api/devices/register:
+    post:
+      tags:
+        - Devices
+      summary: Register a device (or update an existing one)
+      operationId: registerDevice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceRegisterRequest'
+      responses:
+        '200':
+          description: Device registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /api/devices/{deviceId}/heartbeat:
+    post:
+      tags:
+        - Devices
+      summary: Record a device heartbeat
+      operationId: deviceHeartbeat
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdPath'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceHeartbeatRequest'
+      responses:
+        '200':
+          description: Heartbeat received
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceStatusEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/devices:
+    get:
+      tags:
+        - Devices
+      summary: List devices (paged)
+      operationId: getDevices
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - name: sortBy
+          in: query
+          required: false
+          schema:
+            type: string
+            default: lastSeenAt
+        - $ref: '#/components/parameters/DirectionParam'
+      responses:
+        '200':
+          description: Page of devices
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevicePageEnvelope'
+  /api/devices/{deviceId}:
+    get:
+      tags:
+        - Devices
+      summary: Get a device by id
+      operationId: getDeviceById
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdPath'
+      responses:
+        '200':
+          description: Device found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponseEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/devices/{deviceId}/status:
+    get:
+      tags:
+        - Devices
+      summary: Get a device status by id
+      operationId: getDeviceStatus
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdPath'
+      responses:
+        '200':
+          description: Device status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceStatusEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/alerts:
     post:
       tags:
         - Alerts
-      summary: Create a new alert
+      summary: Create an alert
       operationId: createAlert
       requestBody:
         required: true
@@ -29,514 +154,1111 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/AlertCreateRequest'
-            examples:
-              default:
-                summary: Example alert creation payload
-                value:
-                  source: openwrt-edge-agent
-                  deviceId: router-01
-                  type: UDP_FLOOD
-                  severity: HIGH
-                  message: Suspicious UDP traffic spike detected
-                  sourceIp: 192.168.1.120
-                  destinationIp: 8.8.8.8
-                  destinationPort: 53
-                  detectedAt: '2026-04-25T18:42:00Z'
-                  metadata:
-                    packetRate: 4200
-                    protocol: UDP
-      responses:
-        '201':
-          description: Alert created successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Alert'
-        '400':
-          description: Invalid request payload
-    get:
-      tags:
-        - Alerts
-      summary: Get all alerts
-      operationId: getAlerts
       responses:
         '200':
-          description: List of alerts
+          description: Alert created
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Alert'
-  /api/alerts/{id}:
+                $ref: '#/components/schemas/AlertResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
     get:
       tags:
         - Alerts
-      summary: Get alert by id
-      operationId: getAlertById
+      summary: List alerts with filters (paged)
+      operationId: getAlerts
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: Alert identifier
+        - name: severity
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Severity'
+        - name: protocol
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Protocol'
+        - name: deviceId
+          in: query
+          required: false
           schema:
             type: string
+        - name: sourceIp
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - name: sortBy
+          in: query
+          required: false
+          schema:
+            type: string
+            default: timestamp
+        - $ref: '#/components/parameters/DirectionParam'
+      responses:
+        '200':
+          description: Page of alerts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertPageEnvelope'
+  /api/alerts/latest:
+    get:
+      tags:
+        - Alerts
+      summary: Get the most recent alert
+      operationId: getLatestAlert
+      responses:
+        '200':
+          description: Latest alert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertResponseEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/alerts/{alertId}:
+    get:
+      tags:
+        - Alerts
+      summary: Get an alert by id
+      operationId: getAlertById
+      parameters:
+        - $ref: '#/components/parameters/AlertIdPath'
       responses:
         '200':
           description: Alert found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Alert'
+                $ref: '#/components/schemas/AlertResponseEnvelope'
         '404':
-          description: Alert not found
-  /api/devices/heartbeat:
+          $ref: '#/components/responses/NotFound'
+  /api/alerts/by-device/{deviceId}:
+    get:
+      tags:
+        - Alerts
+      summary: List alerts for a device (paged)
+      operationId: getAlertsByDevice
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdPath'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Page of alerts for the device
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertPageEnvelope'
+  /api/alerts/{alertId}/acknowledge:
+    patch:
+      tags:
+        - Alerts
+      summary: Acknowledge an alert
+      operationId: acknowledgeAlert
+      parameters:
+        - $ref: '#/components/parameters/AlertIdPath'
+      responses:
+        '200':
+          description: Alert acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertResponseEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/traffic/stats:
     post:
       tags:
-        - Devices
-      summary: Register device heartbeat
-      operationId: registerDeviceHeartbeat
+        - Traffic
+      summary: Store a traffic-statistics window
+      operationId: createTrafficStats
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DeviceHeartbeatRequest'
-            examples:
-              default:
-                summary: Example heartbeat payload
-                value:
-                  deviceId: router-01
-                  hostname: openwrt-main
-                  ipAddress: 192.168.1.1
-                  status: ONLINE
-                  firmwareVersion: OpenWrt 23.05
-                  agentVersion: 1.0.0
-                  cpuUsage: 27.5
-                  memoryUsage: 43.2
-                  lastSeenAt: '2026-04-25T18:50:00Z'
+              $ref: '#/components/schemas/TrafficStatsCreateRequest'
       responses:
         '200':
-          description: Heartbeat accepted
+          description: Traffic stats stored
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Device'
+                $ref: '#/components/schemas/TrafficStatsResponseEnvelope'
         '400':
-          description: Invalid request payload
-  /api/devices:
+          $ref: '#/components/responses/BadRequest'
+  /api/traffic/stats/latest:
     get:
       tags:
-        - Devices
-      summary: Get all devices
-      operationId: getDevices
+        - Traffic
+      summary: Get the most recent traffic-statistics window
+      operationId: getLatestTrafficStats
       responses:
         '200':
-          description: List of devices
+          description: Latest traffic stats
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Device'
-  /api/devices/{id}:
-    get:
-      tags:
-        - Devices
-      summary: Get device by id
-      operationId: getDeviceById
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Device identifier
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Device found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Device'
+                $ref: '#/components/schemas/TrafficStatsResponseEnvelope'
         '404':
-          description: Device not found
-  /api/reports:
+          $ref: '#/components/responses/NotFound'
+  /api/traffic/stats/by-device/{deviceId}:
+    get:
+      tags:
+        - Traffic
+      summary: List traffic-statistics windows for a device (paged)
+      operationId: getTrafficStatsByDevice
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdPath'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Page of traffic stats for the device
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrafficStatsPageEnvelope'
+  /api/traffic/summary:
+    get:
+      tags:
+        - Traffic
+      summary: Get aggregated traffic totals and protocol percentages
+      operationId: getTrafficSummary
+      responses:
+        '200':
+          description: Traffic summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrafficSummaryEnvelope'
+  /api/forensics/packets:
     post:
       tags:
-        - Reports
-      summary: Create a new report request
-      operationId: createReport
+        - Forensics
+      summary: Store a packet summary
+      operationId: createPacketSummary
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ReportCreateRequest'
-            examples:
-              default:
-                summary: Example report creation payload
-                value:
-                  type: ALERT_SUMMARY
-                  format: CSV
-                  requestedBy: admin
-                  from: '2026-04-01T00:00:00Z'
-                  to: '2026-04-25T23:59:59Z'
+              $ref: '#/components/schemas/PacketSummaryCreateRequest'
       responses:
-        '201':
-          description: Report request created
+        '200':
+          description: Packet summary stored
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Report'
+                $ref: '#/components/schemas/PacketSummaryResponseEnvelope'
         '400':
-          description: Invalid request payload
-  /api/reports/{id}:
+          $ref: '#/components/responses/BadRequest'
     get:
       tags:
-        - Reports
-      summary: Get report by id
-      operationId: getReportById
+        - Forensics
+      summary: List packet summaries (paged)
+      operationId: getPacketSummaries
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: Report identifier
-          schema:
-            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
       responses:
         '200':
-          description: Report found
+          description: Page of packet summaries
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Report'
-        '404':
-          description: Report not found
-  /api/reports/{id}/download:
+                $ref: '#/components/schemas/PacketSummaryPageEnvelope'
+  /api/forensics/by-alert/{alertId}:
     get:
       tags:
-        - Reports
-      summary: Download generated report
-      operationId: downloadReport
+        - Forensics
+      summary: List packet summaries for an alert (paged)
+      operationId: getPacketSummariesByAlert
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: Report identifier
-          schema:
-            type: string
+        - $ref: '#/components/parameters/AlertIdPath'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
       responses:
         '200':
-          description: Report download
+          description: Page of packet summaries for the alert
           content:
-            application/octet-stream:
+            application/json:
               schema:
-                type: string
-                format: binary
-        '404':
-          description: Report file not found
+                $ref: '#/components/schemas/PacketSummaryPageEnvelope'
+  /api/forensics/timeline:
+    get:
+      tags:
+        - Forensics
+      summary: Get the forensic packet timeline (paged)
+      operationId: getForensicsTimeline
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Page of timeline entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForensicsTimelinePageEnvelope'
 components:
+  parameters:
+    DeviceIdPath:
+      name: deviceId
+      in: path
+      required: true
+      description: Device identifier
+      schema:
+        type: string
+    AlertIdPath:
+      name: alertId
+      in: path
+      required: true
+      description: Alert identifier
+      schema:
+        type: string
+    PageParam:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        default: 0
+    SizeParam:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        default: 20
+    DirectionParam:
+      name: direction
+      in: query
+      required: false
+      schema:
+        type: string
+        enum:
+          - asc
+          - desc
+        default: desc
+  responses:
+    BadRequest:
+      description: Invalid request payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
-    Alert:
+    ApiResponse:
       type: object
+      description: Standard response envelope wrapping every successful response.
       required:
-        - id
-        - source
-        - deviceId
-        - type
-        - severity
+        - success
         - message
-        - detectedAt
-        - status
+        - timestamp
       properties:
-        id:
-          type: string
-          example: alert-001
-        source:
-          type: string
-          example: openwrt-edge-agent
-        deviceId:
-          type: string
-          example: router-01
-        type:
-          type: string
-          example: UDP_FLOOD
-        severity:
-          type: string
-          enum:
-            - LOW
-            - MEDIUM
-            - HIGH
-            - CRITICAL
-          example: HIGH
+        success:
+          type: boolean
+          example: true
         message:
           type: string
-          example: Suspicious UDP traffic spike detected
-        sourceIp:
-          type: string
-          nullable: true
-          example: 192.168.1.120
-        destinationIp:
-          type: string
-          nullable: true
-          example: 8.8.8.8
-        destinationPort:
-          type: integer
-          format: int32
-          nullable: true
-          example: 53
-        detectedAt:
+          example: Operation completed
+        timestamp:
           type: string
           format: date-time
-          example: '2026-04-25T18:42:00Z'
+          example: '2026-06-01T10:00:00Z'
+    IndexResponse:
+      type: object
+      description: Hypermedia entry point returned by GET /api.
+      properties:
+        links:
+          $ref: '#/components/schemas/LinkList'
+    ErrorResponse:
+      type: object
+      required:
+        - timestamp
+        - status
+        - error
+        - message
+        - path
+      properties:
+        timestamp:
+          type: string
+          format: date-time
         status:
-          type: string
-          enum:
-            - OPEN
-            - ACKNOWLEDGED
-            - RESOLVED
-          example: OPEN
-        metadata:
-          type: object
-          additionalProperties: true
-          example:
-            packetRate: 4200
-            protocol: UDP
-    AlertCreateRequest:
-      type: object
-      required:
-        - source
-        - deviceId
-        - type
-        - severity
-        - message
-        - detectedAt
-      properties:
-        source:
-          type: string
-          example: openwrt-edge-agent
-        deviceId:
-          type: string
-          example: router-01
-        type:
-          type: string
-          example: UDP_FLOOD
-        severity:
-          type: string
-          enum:
-            - LOW
-            - MEDIUM
-            - HIGH
-            - CRITICAL
-          example: HIGH
-        message:
-          type: string
-          example: Suspicious UDP traffic spike detected
-        sourceIp:
-          type: string
-          nullable: true
-          example: 192.168.1.120
-        destinationIp:
-          type: string
-          nullable: true
-          example: 8.8.8.8
-        destinationPort:
           type: integer
           format: int32
-          nullable: true
-          example: 53
-        detectedAt:
+          example: 404
+        error:
           type: string
-          format: date-time
-          example: '2026-04-25T18:42:00Z'
-        metadata:
+          example: Not Found
+        message:
+          type: string
+          example: 'Device not found: router-01'
+        path:
+          type: string
+          example: /api/devices/router-01
+        validationErrors:
           type: object
-          additionalProperties: true
+          nullable: true
+          additionalProperties:
+            type: string
           example:
-            packetRate: 4200
-            protocol: UDP
-    Device:
+            deviceId: deviceId is required
+    Link:
       type: object
       required:
-        - id
-        - hostname
-        - ipAddress
-        - status
-        - lastSeenAt
+        - rel
+        - href
       properties:
-        id:
+        rel:
           type: string
-          example: router-01
-        hostname:
+          example: self
+        href:
           type: string
-          example: openwrt-main
+          example: https://api.puk3p.online/api/devices/7c9e6679-7425-40de-944b-e07fc1f90ae7
+    DeviceStatus:
+      type: string
+      enum:
+        - ONLINE
+        - OFFLINE
+        - UNKNOWN
+      example: ONLINE
+    DeviceRegisterRequest:
+      type: object
+      required:
+        - name
+        - ipAddress
+      properties:
+        deviceId:
+          type: string
+          nullable: true
+          description: Optional pre-assigned id; the backend generates one when omitted.
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        name:
+          type: string
+          example: Router Lab A
         ipAddress:
           type: string
           example: 192.168.1.1
-        status:
-          type: string
-          enum:
-            - ONLINE
-            - OFFLINE
-            - DEGRADED
-          example: ONLINE
         firmwareVersion:
           type: string
           nullable: true
-          example: OpenWrt 23.05
-        agentVersion:
+          example: OpenWrt 23.05.3
+        model:
           type: string
           nullable: true
-          example: 1.0.0
-        cpuUsage:
-          type: number
-          format: double
-          nullable: true
-          example: 27.5
-        memoryUsage:
-          type: number
-          format: double
-          nullable: true
-          example: 43.2
-        lastSeenAt:
-          type: string
-          format: date-time
-          example: '2026-04-25T18:50:00Z'
+          example: Linksys WRT3200ACM
     DeviceHeartbeatRequest:
       type: object
+      description: Optional body for a heartbeat; an absent seenAt defaults to now.
+      properties:
+        seenAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: '2026-06-01T10:00:00Z'
+    DeviceResponse:
+      type: object
       required:
         - deviceId
-        - hostname
+        - name
         - ipAddress
         - status
         - lastSeenAt
+        - createdAt
+        - updatedAt
       properties:
         deviceId:
           type: string
-          example: router-01
-        hostname:
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        name:
           type: string
-          example: openwrt-main
+          example: Router Lab A
         ipAddress:
           type: string
           example: 192.168.1.1
         status:
-          type: string
-          enum:
-            - ONLINE
-            - OFFLINE
-            - DEGRADED
-          example: ONLINE
-        firmwareVersion:
-          type: string
-          nullable: true
-          example: OpenWrt 23.05
-        agentVersion:
-          type: string
-          nullable: true
-          example: 1.0.0
-        cpuUsage:
-          type: number
-          format: double
-          nullable: true
-          example: 27.5
-        memoryUsage:
-          type: number
-          format: double
-          nullable: true
-          example: 43.2
+          $ref: '#/components/schemas/DeviceStatus'
         lastSeenAt:
           type: string
           format: date-time
-          example: '2026-04-25T18:50:00Z'
-    Report:
-      type: object
-      required:
-        - id
-        - type
-        - format
-        - status
-        - requestedBy
-        - createdAt
-      properties:
-        id:
+        firmwareVersion:
           type: string
-          example: report-001
-        type:
-          type: string
-          enum:
-            - ALERT_SUMMARY
-            - DEVICE_STATUS
-            - INCIDENT_EXPORT
-          example: ALERT_SUMMARY
-        format:
-          type: string
-          enum:
-            - CSV
-            - PDF
-            - JSON
-          example: CSV
-        status:
-          type: string
-          enum:
-            - PENDING
-            - PROCESSING
-            - READY
-            - FAILED
-          example: READY
-        requestedBy:
-          type: string
-          example: admin
-        from:
-          type: string
-          format: date-time
           nullable: true
-          example: '2026-04-01T00:00:00Z'
-        to:
+          example: OpenWrt 23.05.3
+        model:
           type: string
-          format: date-time
           nullable: true
-          example: '2026-04-25T23:59:59Z'
+          example: Linksys WRT3200ACM
         createdAt:
           type: string
           format: date-time
-          example: '2026-04-25T19:10:00Z'
-        downloadUrl:
+        updatedAt:
           type: string
-          nullable: true
-          example: /api/reports/report-001/download
-    ReportCreateRequest:
+          format: date-time
+        links:
+          $ref: '#/components/schemas/LinkList'
+    DeviceStatusResponse:
       type: object
       required:
-        - type
-        - format
-        - requestedBy
+        - deviceId
+        - status
+        - lastSeenAt
       properties:
+        deviceId:
+          type: string
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        status:
+          $ref: '#/components/schemas/DeviceStatus'
+        lastSeenAt:
+          type: string
+          format: date-time
+        links:
+          $ref: '#/components/schemas/LinkList'
+    DeviceResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/DeviceResponse'
+    DeviceStatusEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/DeviceStatusResponse'
+    DevicePageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/DevicePage'
+    AlertType:
+      type: string
+      enum:
+        - UDP_FLOOD_SUSPECTED
+        - TCP_SPIKE_SUSPECTED
+        - HIGH_TRAFFIC_VOLUME
+        - PORT_SCAN_SUSPECTED
+        - UNKNOWN
+      example: UDP_FLOOD_SUSPECTED
+    Severity:
+      type: string
+      enum:
+        - LOW
+        - MEDIUM
+        - HIGH
+        - CRITICAL
+      example: HIGH
+    Protocol:
+      type: string
+      enum:
+        - TCP
+        - UDP
+        - ICMP
+        - UNKNOWN
+      example: UDP
+    AlertCreateRequest:
+      type: object
+      required:
+        - deviceId
+        - timestamp
+        - type
+        - severity
+        - protocol
+        - sourceIp
+        - destinationIp
+        - sourcePort
+        - destinationPort
+        - packetCount
+        - bytesCount
+        - windowSeconds
+      properties:
+        deviceId:
+          type: string
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        timestamp:
+          type: string
+          format: date-time
+          example: '2026-06-01T10:00:05Z'
         type:
+          $ref: '#/components/schemas/AlertType'
+        severity:
+          $ref: '#/components/schemas/Severity'
+        protocol:
+          $ref: '#/components/schemas/Protocol'
+        sourceIp:
           type: string
-          enum:
-            - ALERT_SUMMARY
-            - DEVICE_STATUS
-            - INCIDENT_EXPORT
-          example: ALERT_SUMMARY
-        format:
+          example: 10.10.10.2
+        destinationIp:
           type: string
-          enum:
-            - CSV
-            - PDF
-            - JSON
-          example: CSV
-        requestedBy:
+          example: 192.168.1.10
+        sourcePort:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 5353
+        destinationPort:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 443
+        packetCount:
+          type: integer
+          format: int64
+          minimum: 0
+          example: 230
+        bytesCount:
+          type: integer
+          format: int64
+          minimum: 0
+          example: 120000
+        windowSeconds:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 5
+        description:
           type: string
-          example: admin
-        from:
+          nullable: true
+          example: Traffic burst above baseline
+    AlertResponse:
+      type: object
+      required:
+        - alertId
+        - deviceId
+        - timestamp
+        - type
+        - severity
+        - protocol
+        - sourceIp
+        - destinationIp
+        - sourcePort
+        - destinationPort
+        - packetCount
+        - bytesCount
+        - windowSeconds
+        - acknowledged
+        - createdAt
+      properties:
+        alertId:
+          type: string
+          example: 21f088f9-4695-47ae-b9f3-d75df5606b11
+        deviceId:
+          type: string
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        timestamp:
           type: string
           format: date-time
+        type:
+          $ref: '#/components/schemas/AlertType'
+        severity:
+          $ref: '#/components/schemas/Severity'
+        protocol:
+          $ref: '#/components/schemas/Protocol'
+        sourceIp:
+          type: string
+          example: 10.10.10.2
+        destinationIp:
+          type: string
+          example: 192.168.1.10
+        sourcePort:
+          type: integer
+          format: int32
+          example: 5353
+        destinationPort:
+          type: integer
+          format: int32
+          example: 443
+        packetCount:
+          type: integer
+          format: int64
+          example: 230
+        bytesCount:
+          type: integer
+          format: int64
+          example: 120000
+        windowSeconds:
+          type: integer
+          format: int32
+          example: 5
+        description:
+          type: string
           nullable: true
-          example: '2026-04-01T00:00:00Z'
-        to:
+          example: Traffic burst above baseline
+        acknowledged:
+          type: boolean
+          example: false
+        createdAt:
           type: string
           format: date-time
+        links:
+          $ref: '#/components/schemas/LinkList'
+    AlertResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AlertResponse'
+    AlertPageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AlertPage'
+    TrafficStatsCreateRequest:
+      type: object
+      required:
+        - deviceId
+        - timestamp
+        - totalPackets
+        - tcpPackets
+        - udpPackets
+        - totalBytes
+        - tcpBytes
+        - udpBytes
+        - windowSeconds
+      properties:
+        deviceId:
+          type: string
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        timestamp:
+          type: string
+          format: date-time
+          example: '2026-06-01T10:00:00Z'
+        totalPackets:
+          type: integer
+          format: int64
+          minimum: 0
+          example: 34000
+        tcpPackets:
+          type: integer
+          format: int64
+          minimum: 0
+          example: 21000
+        udpPackets:
+          type: integer
+          format: int64
+          minimum: 0
+          example: 13000
+        totalBytes:
+          type: integer
+          format: int64
+          minimum: 0
+          example: 28000000
+        tcpBytes:
+          type: integer
+          format: int64
+          minimum: 0
+          example: 21000000
+        udpBytes:
+          type: integer
+          format: int64
+          minimum: 0
+          example: 7000000
+        windowSeconds:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 60
+    TrafficStatsResponse:
+      type: object
+      required:
+        - deviceId
+        - timestamp
+        - totalPackets
+        - tcpPackets
+        - udpPackets
+        - totalBytes
+        - tcpBytes
+        - udpBytes
+        - windowSeconds
+        - createdAt
+      properties:
+        deviceId:
+          type: string
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        timestamp:
+          type: string
+          format: date-time
+        totalPackets:
+          type: integer
+          format: int64
+          example: 34000
+        tcpPackets:
+          type: integer
+          format: int64
+          example: 21000
+        udpPackets:
+          type: integer
+          format: int64
+          example: 13000
+        totalBytes:
+          type: integer
+          format: int64
+          example: 28000000
+        tcpBytes:
+          type: integer
+          format: int64
+          example: 21000000
+        udpBytes:
+          type: integer
+          format: int64
+          example: 7000000
+        windowSeconds:
+          type: integer
+          format: int32
+          example: 60
+        createdAt:
+          type: string
+          format: date-time
+        links:
+          $ref: '#/components/schemas/LinkList'
+    TrafficSummaryResponse:
+      type: object
+      required:
+        - totalPackets
+        - tcpPackets
+        - udpPackets
+        - totalBytes
+        - tcpBytes
+        - udpBytes
+        - tcpPercentage
+        - udpPercentage
+      properties:
+        totalPackets:
+          type: integer
+          format: int64
+          example: 34000
+        tcpPackets:
+          type: integer
+          format: int64
+          example: 21000
+        udpPackets:
+          type: integer
+          format: int64
+          example: 13000
+        totalBytes:
+          type: integer
+          format: int64
+          example: 28000000
+        tcpBytes:
+          type: integer
+          format: int64
+          example: 21000000
+        udpBytes:
+          type: integer
+          format: int64
+          example: 7000000
+        tcpPercentage:
+          type: number
+          format: double
+          example: 61.76
+        udpPercentage:
+          type: number
+          format: double
+          example: 38.24
+        links:
+          $ref: '#/components/schemas/LinkList'
+    TrafficStatsResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/TrafficStatsResponse'
+    TrafficSummaryEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/TrafficSummaryResponse'
+    TrafficStatsPageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/TrafficStatsPage'
+    PacketSummaryCreateRequest:
+      type: object
+      required:
+        - deviceId
+        - timestamp
+        - protocol
+        - sourceIp
+        - destinationIp
+        - sourcePort
+        - destinationPort
+        - packetSize
+      properties:
+        deviceId:
+          type: string
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        alertId:
+          type: string
           nullable: true
-          example: '2026-04-25T23:59:59Z'
+          example: 21f088f9-4695-47ae-b9f3-d75df5606b11
+        timestamp:
+          type: string
+          format: date-time
+          example: '2026-06-01T10:00:05Z'
+        protocol:
+          $ref: '#/components/schemas/Protocol'
+        sourceIp:
+          type: string
+          example: 10.10.10.2
+        destinationIp:
+          type: string
+          example: 192.168.1.10
+        sourcePort:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 5353
+        destinationPort:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 443
+        packetSize:
+          type: integer
+          format: int64
+          minimum: 0
+          example: 1500
+        tcpFlags:
+          type: string
+          nullable: true
+          example: SYN
+    PacketSummaryResponse:
+      type: object
+      required:
+        - deviceId
+        - timestamp
+        - protocol
+        - sourceIp
+        - destinationIp
+        - sourcePort
+        - destinationPort
+        - packetSize
+        - createdAt
+      properties:
+        deviceId:
+          type: string
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        alertId:
+          type: string
+          nullable: true
+          example: 21f088f9-4695-47ae-b9f3-d75df5606b11
+        timestamp:
+          type: string
+          format: date-time
+        protocol:
+          $ref: '#/components/schemas/Protocol'
+        sourceIp:
+          type: string
+          example: 10.10.10.2
+        destinationIp:
+          type: string
+          example: 192.168.1.10
+        sourcePort:
+          type: integer
+          format: int32
+          example: 5353
+        destinationPort:
+          type: integer
+          format: int32
+          example: 443
+        packetSize:
+          type: integer
+          format: int64
+          example: 1500
+        tcpFlags:
+          type: string
+          nullable: true
+          example: SYN
+        createdAt:
+          type: string
+          format: date-time
+        links:
+          $ref: '#/components/schemas/LinkList'
+    ForensicsTimelineEntry:
+      type: object
+      required:
+        - timestamp
+        - deviceId
+        - protocol
+        - sourceIp
+        - destinationIp
+        - packetSize
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        deviceId:
+          type: string
+          example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        alertId:
+          type: string
+          nullable: true
+          example: 21f088f9-4695-47ae-b9f3-d75df5606b11
+        protocol:
+          $ref: '#/components/schemas/Protocol'
+        sourceIp:
+          type: string
+          example: 10.10.10.2
+        destinationIp:
+          type: string
+          example: 192.168.1.10
+        packetSize:
+          type: integer
+          format: int64
+          example: 1500
+        links:
+          $ref: '#/components/schemas/LinkList'
+    PacketSummaryResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/PacketSummaryResponse'
+    PacketSummaryPageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/PacketSummaryPage'
+    ForensicsTimelinePageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ForensicsTimelinePage'
+    LinkList:
+      type: array
+      description: HATEOAS links to related resources and available actions.
+      items:
+        $ref: '#/components/schemas/Link'
+    PageMeta:
+      type: object
+      description: Pagination metadata shared by all paged responses.
+      required:
+        - page
+        - size
+        - totalElements
+        - totalPages
+        - isLast
+      properties:
+        page:
+          type: integer
+          format: int32
+          example: 0
+        size:
+          type: integer
+          format: int32
+          example: 20
+        totalElements:
+          type: integer
+          format: int64
+          example: 42
+        totalPages:
+          type: integer
+          format: int32
+          example: 3
+        isLast:
+          type: boolean
+          example: false
+        links:
+          $ref: '#/components/schemas/LinkList'
+    DevicePage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/DeviceResponse'
+    AlertPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/AlertResponse'
+    TrafficStatsPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/TrafficStatsResponse'
+    PacketSummaryPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/PacketSummaryResponse'
+    ForensicsTimelinePage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/ForensicsTimelineEntry'

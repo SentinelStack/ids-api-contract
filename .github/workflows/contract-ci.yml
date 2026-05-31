@@ -27,9 +27,11 @@ jobs:
       - name: Check required files exist
         run: |
           test -f openapi/ids-backend.yaml
-          test -f schemas/Alert.yaml
+          test -f schemas/Common.yaml
           test -f schemas/Device.yaml
-          test -f schemas/Report.yaml
+          test -f schemas/Alert.yaml
+          test -f schemas/Traffic.yaml
+          test -f schemas/Forensics.yaml
           test -f examples/alert-example.json
           test -f examples/device-status-example.json
 

@@ -1,60 +1,28 @@
-AlertType:
-  type: string
-  enum:
-    - UDP_FLOOD_SUSPECTED
-    - TCP_SPIKE_SUSPECTED
-    - HIGH_TRAFFIC_VOLUME
-    - PORT_SCAN_SUSPECTED
-    - UNKNOWN
-  example: UDP_FLOOD_SUSPECTED
-
-Severity:
-  type: string
-  enum:
-    - LOW
-    - MEDIUM
-    - HIGH
-    - CRITICAL
-  example: HIGH
-
-Protocol:
-  type: string
-  enum:
-    - TCP
-    - UDP
-    - ICMP
-    - UNKNOWN
-  example: UDP
-
-AlertCreateRequest:
+PacketSummaryCreateRequest:
   type: object
   required:
     - deviceId
     - timestamp
-    - type
-    - severity
     - protocol
     - sourceIp
     - destinationIp
     - sourcePort
     - destinationPort
-    - packetCount
-    - bytesCount
-    - windowSeconds
+    - packetSize
   properties:
     deviceId:
       type: string
       example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+    alertId:
+      type: string
+      nullable: true
+      example: "21f088f9-4695-47ae-b9f3-d75df5606b11"
     timestamp:
       type: string
       format: date-time
       example: "2026-06-01T10:00:05Z"
-    type:
-      $ref: '#/AlertType'
-    severity:
-      $ref: '#/Severity'
     protocol:
-      $ref: '#/Protocol'
+      $ref: './Alert.yaml#/Protocol'
     sourceIp:
       type: string
       example: "10.10.10.2"
@@ -71,60 +39,41 @@ AlertCreateRequest:
       format: int32
       minimum: 0
       example: 443
-    packetCount:
+    packetSize:
       type: integer
       format: int64
       minimum: 0
-      example: 230
-    bytesCount:
-      type: integer
-      format: int64
-      minimum: 0
-      example: 120000
-    windowSeconds:
-      type: integer
-      format: int32
-      minimum: 0
-      example: 5
-    description:
+      example: 1500
+    tcpFlags:
       type: string
       nullable: true
-      example: "Traffic burst above baseline"
+      example: "SYN"
 
-AlertResponse:
+PacketSummaryResponse:
   type: object
   required:
-    - alertId
     - deviceId
     - timestamp
-    - type
-    - severity
     - protocol
     - sourceIp
     - destinationIp
     - sourcePort
     - destinationPort
-    - packetCount
-    - bytesCount
-    - windowSeconds
-    - acknowledged
+    - packetSize
     - createdAt
   properties:
-    alertId:
-      type: string
-      example: "21f088f9-4695-47ae-b9f3-d75df5606b11"
     deviceId:
       type: string
       example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+    alertId:
+      type: string
+      nullable: true
+      example: "21f088f9-4695-47ae-b9f3-d75df5606b11"
     timestamp:
       type: string
       format: date-time
-    type:
-      $ref: '#/AlertType'
-    severity:
-      $ref: '#/Severity'
     protocol:
-      $ref: '#/Protocol'
+      $ref: './Alert.yaml#/Protocol'
     sourceIp:
       type: string
       example: "10.10.10.2"
@@ -139,40 +88,64 @@ AlertResponse:
       type: integer
       format: int32
       example: 443
-    packetCount:
+    packetSize:
       type: integer
       format: int64
-      example: 230
-    bytesCount:
-      type: integer
-      format: int64
-      example: 120000
-    windowSeconds:
-      type: integer
-      format: int32
-      example: 5
-    description:
+      example: 1500
+    tcpFlags:
       type: string
       nullable: true
-      example: "Traffic burst above baseline"
-    acknowledged:
-      type: boolean
-      example: false
+      example: "SYN"
     createdAt:
       type: string
       format: date-time
     links:
       $ref: './Common.yaml#/LinkList'
 
-AlertResponseEnvelope:
+ForensicsTimelineEntry:
+  type: object
+  required:
+    - timestamp
+    - deviceId
+    - protocol
+    - sourceIp
+    - destinationIp
+    - packetSize
+  properties:
+    timestamp:
+      type: string
+      format: date-time
+    deviceId:
+      type: string
+      example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+    alertId:
+      type: string
+      nullable: true
+      example: "21f088f9-4695-47ae-b9f3-d75df5606b11"
+    protocol:
+      $ref: './Alert.yaml#/Protocol'
+    sourceIp:
+      type: string
+      example: "10.10.10.2"
+    destinationIp:
+      type: string
+      example: "192.168.1.10"
+    packetSize:
+      type: integer
+      format: int64
+      example: 1500
+    links:
+      $ref: './Common.yaml#/LinkList'
+
+PacketSummaryResponseEnvelope:
   allOf:
     - $ref: './Common.yaml#/ApiResponse'
     - type: object
       properties:
         data:
-          $ref: '#/AlertResponse'
+          $ref: '#/PacketSummaryResponse'
 
-AlertPage:
+PacketSummaryPage:
   allOf:
     - $ref: './Common.yaml#/PageMeta'
     - type: object
@@ -180,12 +153,30 @@ AlertPage:
         content:
           type: array
           items:
-            $ref: '#/AlertResponse'
+            $ref: '#/PacketSummaryResponse'
 
-AlertPageEnvelope:
+PacketSummaryPageEnvelope:
   allOf:
     - $ref: './Common.yaml#/ApiResponse'
     - type: object
       properties:
         data:
-          $ref: '#/AlertPage'
+          $ref: '#/PacketSummaryPage'
+
+ForensicsTimelinePage:
+  allOf:
+    - $ref: './Common.yaml#/PageMeta'
+    - type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/ForensicsTimelineEntry'
+
+ForensicsTimelinePageEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/ForensicsTimelinePage'

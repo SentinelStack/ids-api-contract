@@ -1,0 +1,109 @@
+Link:
+  type: object
+  required:
+    - rel
+    - href
+  properties:
+    rel:
+      type: string
+      example: self
+    href:
+      type: string
+      example: https://api.puk3p.online/api/devices/7c9e6679-7425-40de-944b-e07fc1f90ae7
+
+LinkList:
+  type: array
+  description: HATEOAS links to related resources and available actions.
+  items:
+    $ref: '#/Link'
+
+ApiResponse:
+  type: object
+  description: Standard response envelope wrapping every successful response.
+  required:
+    - success
+    - message
+    - timestamp
+  properties:
+    success:
+      type: boolean
+      example: true
+    message:
+      type: string
+      example: Operation completed
+    timestamp:
+      type: string
+      format: date-time
+      example: "2026-06-01T10:00:00Z"
+
+PageMeta:
+  type: object
+  description: Pagination metadata shared by all paged responses.
+  required:
+    - page
+    - size
+    - totalElements
+    - totalPages
+    - isLast
+  properties:
+    page:
+      type: integer
+      format: int32
+      example: 0
+    size:
+      type: integer
+      format: int32
+      example: 20
+    totalElements:
+      type: integer
+      format: int64
+      example: 42
+    totalPages:
+      type: integer
+      format: int32
+      example: 3
+    isLast:
+      type: boolean
+      example: false
+    links:
+      $ref: '#/LinkList'
+
+IndexResponse:
+  type: object
+  description: Hypermedia entry point returned by GET /api.
+  properties:
+    links:
+      $ref: '#/LinkList'
+
+ErrorResponse:
+  type: object
+  required:
+    - timestamp
+    - status
+    - error
+    - message
+    - path
+  properties:
+    timestamp:
+      type: string
+      format: date-time
+    status:
+      type: integer
+      format: int32
+      example: 404
+    error:
+      type: string
+      example: Not Found
+    message:
+      type: string
+      example: "Device not found: router-01"
+    path:
+      type: string
+      example: /api/devices/router-01
+    validationErrors:
+      type: object
+      nullable: true
+      additionalProperties:
+        type: string
+      example:
+        deviceId: deviceId is required

@@ -1,0 +1,190 @@
+TrafficStatsCreateRequest:
+  type: object
+  required:
+    - deviceId
+    - timestamp
+    - totalPackets
+    - tcpPackets
+    - udpPackets
+    - totalBytes
+    - tcpBytes
+    - udpBytes
+    - windowSeconds
+  properties:
+    deviceId:
+      type: string
+      example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+    timestamp:
+      type: string
+      format: date-time
+      example: "2026-06-01T10:00:00Z"
+    totalPackets:
+      type: integer
+      format: int64
+      minimum: 0
+      example: 34000
+    tcpPackets:
+      type: integer
+      format: int64
+      minimum: 0
+      example: 21000
+    udpPackets:
+      type: integer
+      format: int64
+      minimum: 0
+      example: 13000
+    totalBytes:
+      type: integer
+      format: int64
+      minimum: 0
+      example: 28000000
+    tcpBytes:
+      type: integer
+      format: int64
+      minimum: 0
+      example: 21000000
+    udpBytes:
+      type: integer
+      format: int64
+      minimum: 0
+      example: 7000000
+    windowSeconds:
+      type: integer
+      format: int32
+      minimum: 0
+      example: 60
+
+TrafficStatsResponse:
+  type: object
+  required:
+    - deviceId
+    - timestamp
+    - totalPackets
+    - tcpPackets
+    - udpPackets
+    - totalBytes
+    - tcpBytes
+    - udpBytes
+    - windowSeconds
+    - createdAt
+  properties:
+    deviceId:
+      type: string
+      example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+    timestamp:
+      type: string
+      format: date-time
+    totalPackets:
+      type: integer
+      format: int64
+      example: 34000
+    tcpPackets:
+      type: integer
+      format: int64
+      example: 21000
+    udpPackets:
+      type: integer
+      format: int64
+      example: 13000
+    totalBytes:
+      type: integer
+      format: int64
+      example: 28000000
+    tcpBytes:
+      type: integer
+      format: int64
+      example: 21000000
+    udpBytes:
+      type: integer
+      format: int64
+      example: 7000000
+    windowSeconds:
+      type: integer
+      format: int32
+      example: 60
+    createdAt:
+      type: string
+      format: date-time
+    links:
+      $ref: './Common.yaml#/LinkList'
+
+TrafficSummaryResponse:
+  type: object
+  required:
+    - totalPackets
+    - tcpPackets
+    - udpPackets
+    - totalBytes
+    - tcpBytes
+    - udpBytes
+    - tcpPercentage
+    - udpPercentage
+  properties:
+    totalPackets:
+      type: integer
+      format: int64
+      example: 34000
+    tcpPackets:
+      type: integer
+      format: int64
+      example: 21000
+    udpPackets:
+      type: integer
+      format: int64
+      example: 13000
+    totalBytes:
+      type: integer
+      format: int64
+      example: 28000000
+    tcpBytes:
+      type: integer
+      format: int64
+      example: 21000000
+    udpBytes:
+      type: integer
+      format: int64
+      example: 7000000
+    tcpPercentage:
+      type: number
+      format: double
+      example: 61.76
+    udpPercentage:
+      type: number
+      format: double
+      example: 38.24
+    links:
+      $ref: './Common.yaml#/LinkList'
+
+TrafficStatsResponseEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/TrafficStatsResponse'
+
+TrafficSummaryEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/TrafficSummaryResponse'
+
+TrafficStatsPage:
+  allOf:
+    - $ref: './Common.yaml#/PageMeta'
+    - type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/TrafficStatsResponse'
+
+TrafficStatsPageEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/TrafficStatsPage'

@@ -1,11 +1,14 @@
 {
-  "deviceId": "router-01",
-  "hostname": "openwrt-main",
-  "ipAddress": "192.168.1.1",
-  "status": "ONLINE",
-  "firmwareVersion": "OpenWrt 23.05",
-  "agentVersion": "1.0.0",
-  "cpuUsage": 27.5,
-  "memoryUsage": 43.2,
-  "lastSeenAt": "2026-04-25T18:50:00Z"
+  "success": true,
+  "message": "Heartbeat received",
+  "data": {
+    "deviceId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    "status": "ONLINE",
+    "lastSeenAt": "2026-06-01T10:00:00Z",
+    "links": [
+      { "rel": "self", "href": "https://api.puk3p.online/api/devices/7c9e6679-7425-40de-944b-e07fc1f90ae7/status" },
+      { "rel": "device", "href": "https://api.puk3p.online/api/devices/7c9e6679-7425-40de-944b-e07fc1f90ae7" }
+    ]
+  },
+  "timestamp": "2026-06-01T10:00:00Z"
 }

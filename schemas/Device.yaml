@@ -1,89 +1,137 @@
-Device:
+DeviceStatus:
+  type: string
+  enum:
+    - ONLINE
+    - OFFLINE
+    - UNKNOWN
+  example: ONLINE
+
+DeviceRegisterRequest:
   type: object
   required:
-    - id
-    - hostname
+    - name
+    - ipAddress
+  properties:
+    deviceId:
+      type: string
+      nullable: true
+      description: Optional pre-assigned id; the backend generates one when omitted.
+      example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+    name:
+      type: string
+      example: "Router Lab A"
+    ipAddress:
+      type: string
+      example: "192.168.1.1"
+    firmwareVersion:
+      type: string
+      nullable: true
+      example: "OpenWrt 23.05.3"
+    model:
+      type: string
+      nullable: true
+      example: "Linksys WRT3200ACM"
+
+DeviceHeartbeatRequest:
+  type: object
+  description: Optional body for a heartbeat; an absent seenAt defaults to now.
+  properties:
+    seenAt:
+      type: string
+      format: date-time
+      nullable: true
+      example: "2026-06-01T10:00:00Z"
+
+DeviceResponse:
+  type: object
+  required:
+    - deviceId
+    - name
     - ipAddress
     - status
     - lastSeenAt
+    - createdAt
+    - updatedAt
   properties:
-    id:
+    deviceId:
       type: string
-      example: "router-01"
-    hostname:
+      example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+    name:
       type: string
-      example: "openwrt-main"
+      example: "Router Lab A"
     ipAddress:
       type: string
       example: "192.168.1.1"
     status:
-      type: string
-      enum: [ONLINE, OFFLINE, DEGRADED]
-      example: "ONLINE"
-    firmwareVersion:
-      type: string
-      nullable: true
-      example: "OpenWrt 23.05"
-    agentVersion:
-      type: string
-      nullable: true
-      example: "1.0.0"
-    cpuUsage:
-      type: number
-      format: double
-      nullable: true
-      example: 27.5
-    memoryUsage:
-      type: number
-      format: double
-      nullable: true
-      example: 43.2
+      $ref: '#/DeviceStatus'
     lastSeenAt:
       type: string
       format: date-time
-      example: "2026-04-25T18:50:00Z"
+    firmwareVersion:
+      type: string
+      nullable: true
+      example: "OpenWrt 23.05.3"
+    model:
+      type: string
+      nullable: true
+      example: "Linksys WRT3200ACM"
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+    links:
+      $ref: './Common.yaml#/LinkList'
 
-DeviceHeartbeatRequest:
+DeviceStatusResponse:
   type: object
   required:
     - deviceId
-    - hostname
-    - ipAddress
     - status
     - lastSeenAt
   properties:
     deviceId:
       type: string
-      example: "router-01"
-    hostname:
-      type: string
-      example: "openwrt-main"
-    ipAddress:
-      type: string
-      example: "192.168.1.1"
+      example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
     status:
-      type: string
-      enum: [ONLINE, OFFLINE, DEGRADED]
-      example: "ONLINE"
-    firmwareVersion:
-      type: string
-      nullable: true
-      example: "OpenWrt 23.05"
-    agentVersion:
-      type: string
-      nullable: true
-      example: "1.0.0"
-    cpuUsage:
-      type: number
-      format: double
-      nullable: true
-      example: 27.5
-    memoryUsage:
-      type: number
-      format: double
-      nullable: true
-      example: 43.2
+      $ref: '#/DeviceStatus'
     lastSeenAt:
       type: string
       format: date-time
-      example: "2026-04-25T18:50:00Z"
+    links:
+      $ref: './Common.yaml#/LinkList'
+
+DeviceResponseEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/DeviceResponse'
+
+DeviceStatusEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/DeviceStatusResponse'
+
+DevicePage:
+  allOf:
+    - $ref: './Common.yaml#/PageMeta'
+    - type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/DeviceResponse'
+
+DevicePageEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/DevicePage'

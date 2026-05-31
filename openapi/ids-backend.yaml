@@ -1,8 +1,15 @@
 openapi: 3.0.3
 info:
   title: IDS Platform Backend API
-  version: 1.0.0
-  description: API for alerts, devices and reports in the OpenWrt IDS/IPS platform.
+  version: 1.1.1
+  description: >-
+    API for the OpenWrt IDS/IPS platform backend (Sentinel). Exposes processed
+    security telemetry produced by the edge agent: devices and heartbeats,
+    alerts, aggregated traffic statistics and packet/forensics metadata.
+
+    Every successful response is wrapped in a standard envelope
+    (`success`, `message`, `data`, `timestamp`). Resources and paged collections
+    carry HATEOAS `links`. Errors return an `ErrorResponse`.
   license:
     name: Proprietary
 
@@ -11,21 +18,150 @@ servers:
     description: Production backend server
 
 tags:
+  - name: Index
+    description: Hypermedia entry point
+  - name: Devices
+    description: Device registration, heartbeat and status
   - name: Alerts
     description: Alert ingestion and retrieval
-  - name: Devices
-    description: Device and agent status management
-  - name: Reports
-    description: Report creation and download
+  - name: Traffic
+    description: Aggregated traffic statistics
+  - name: Forensics
+    description: Packet-level forensic metadata
 
 security: []
 
 paths:
+  /api:
+    get:
+      tags:
+        - Index
+      summary: API hypermedia entry point
+      operationId: getApiIndex
+      responses:
+        '200':
+          description: Top-level links to the available collections and actions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/IndexResponse'
+
+  /api/devices/register:
+    post:
+      tags:
+        - Devices
+      summary: Register a device (or update an existing one)
+      operationId: registerDevice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceRegisterRequest'
+      responses:
+        '200':
+          description: Device registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/devices/{deviceId}/heartbeat:
+    post:
+      tags:
+        - Devices
+      summary: Record a device heartbeat
+      operationId: deviceHeartbeat
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdPath'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceHeartbeatRequest'
+      responses:
+        '200':
+          description: Heartbeat received
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceStatusEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/devices:
+    get:
+      tags:
+        - Devices
+      summary: List devices (paged)
+      operationId: getDevices
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - name: sortBy
+          in: query
+          required: false
+          schema:
+            type: string
+            default: lastSeenAt
+        - $ref: '#/components/parameters/DirectionParam'
+      responses:
+        '200':
+          description: Page of devices
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevicePageEnvelope'
+
+  /api/devices/{deviceId}:
+    get:
+      tags:
+        - Devices
+      summary: Get a device by id
+      operationId: getDeviceById
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdPath'
+      responses:
+        '200':
+          description: Device found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponseEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/devices/{deviceId}/status:
+    get:
+      tags:
+        - Devices
+      summary: Get a device status by id
+      operationId: getDeviceStatus
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdPath'
+      responses:
+        '200':
+          description: Device status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceStatusEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /api/alerts:
     post:
       tags:
         - Alerts
-      summary: Create a new alert
+      summary: Create an alert
       operationId: createAlert
       requestBody:
         required: true
@@ -33,235 +169,413 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/AlertCreateRequest'
-            examples:
-              default:
-                summary: Example alert creation payload
-                value:
-                  source: "openwrt-edge-agent"
-                  deviceId: "router-01"
-                  type: "UDP_FLOOD"
-                  severity: "HIGH"
-                  message: "Suspicious UDP traffic spike detected"
-                  sourceIp: "192.168.1.120"
-                  destinationIp: "8.8.8.8"
-                  destinationPort: 53
-                  detectedAt: "2026-04-25T18:42:00Z"
-                  metadata:
-                    packetRate: 4200
-                    protocol: "UDP"
-      responses:
-        '201':
-          description: Alert created successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Alert'
-        '400':
-          description: Invalid request payload
-
-    get:
-      tags:
-        - Alerts
-      summary: Get all alerts
-      operationId: getAlerts
       responses:
         '200':
-          description: List of alerts
+          description: Alert created
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Alert'
-
-  /api/alerts/{id}:
+                $ref: '#/components/schemas/AlertResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
     get:
       tags:
         - Alerts
-      summary: Get alert by id
-      operationId: getAlertById
+      summary: List alerts with filters (paged)
+      operationId: getAlerts
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: Alert identifier
+        - name: severity
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Severity'
+        - name: protocol
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Protocol'
+        - name: deviceId
+          in: query
+          required: false
           schema:
             type: string
+        - name: sourceIp
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - name: sortBy
+          in: query
+          required: false
+          schema:
+            type: string
+            default: timestamp
+        - $ref: '#/components/parameters/DirectionParam'
+      responses:
+        '200':
+          description: Page of alerts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertPageEnvelope'
+
+  /api/alerts/latest:
+    get:
+      tags:
+        - Alerts
+      summary: Get the most recent alert
+      operationId: getLatestAlert
+      responses:
+        '200':
+          description: Latest alert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertResponseEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/alerts/{alertId}:
+    get:
+      tags:
+        - Alerts
+      summary: Get an alert by id
+      operationId: getAlertById
+      parameters:
+        - $ref: '#/components/parameters/AlertIdPath'
       responses:
         '200':
           description: Alert found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Alert'
+                $ref: '#/components/schemas/AlertResponseEnvelope'
         '404':
-          description: Alert not found
+          $ref: '#/components/responses/NotFound'
 
-  /api/devices/heartbeat:
+  /api/alerts/by-device/{deviceId}:
+    get:
+      tags:
+        - Alerts
+      summary: List alerts for a device (paged)
+      operationId: getAlertsByDevice
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdPath'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Page of alerts for the device
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertPageEnvelope'
+
+  /api/alerts/{alertId}/acknowledge:
+    patch:
+      tags:
+        - Alerts
+      summary: Acknowledge an alert
+      operationId: acknowledgeAlert
+      parameters:
+        - $ref: '#/components/parameters/AlertIdPath'
+      responses:
+        '200':
+          description: Alert acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertResponseEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/traffic/stats:
     post:
       tags:
-        - Devices
-      summary: Register device heartbeat
-      operationId: registerDeviceHeartbeat
+        - Traffic
+      summary: Store a traffic-statistics window
+      operationId: createTrafficStats
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DeviceHeartbeatRequest'
-            examples:
-              default:
-                summary: Example heartbeat payload
-                value:
-                  deviceId: "router-01"
-                  hostname: "openwrt-main"
-                  ipAddress: "192.168.1.1"
-                  status: "ONLINE"
-                  firmwareVersion: "OpenWrt 23.05"
-                  agentVersion: "1.0.0"
-                  cpuUsage: 27.5
-                  memoryUsage: 43.2
-                  lastSeenAt: "2026-04-25T18:50:00Z"
+              $ref: '#/components/schemas/TrafficStatsCreateRequest'
       responses:
         '200':
-          description: Heartbeat accepted
+          description: Traffic stats stored
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Device'
+                $ref: '#/components/schemas/TrafficStatsResponseEnvelope'
         '400':
-          description: Invalid request payload
+          $ref: '#/components/responses/BadRequest'
 
-  /api/devices:
+  /api/traffic/stats/latest:
     get:
       tags:
-        - Devices
-      summary: Get all devices
-      operationId: getDevices
+        - Traffic
+      summary: Get the most recent traffic-statistics window
+      operationId: getLatestTrafficStats
       responses:
         '200':
-          description: List of devices
+          description: Latest traffic stats
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Device'
-
-  /api/devices/{id}:
-    get:
-      tags:
-        - Devices
-      summary: Get device by id
-      operationId: getDeviceById
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Device identifier
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Device found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Device'
+                $ref: '#/components/schemas/TrafficStatsResponseEnvelope'
         '404':
-          description: Device not found
+          $ref: '#/components/responses/NotFound'
 
-  /api/reports:
+  /api/traffic/stats/by-device/{deviceId}:
+    get:
+      tags:
+        - Traffic
+      summary: List traffic-statistics windows for a device (paged)
+      operationId: getTrafficStatsByDevice
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdPath'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Page of traffic stats for the device
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrafficStatsPageEnvelope'
+
+  /api/traffic/summary:
+    get:
+      tags:
+        - Traffic
+      summary: Get aggregated traffic totals and protocol percentages
+      operationId: getTrafficSummary
+      responses:
+        '200':
+          description: Traffic summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrafficSummaryEnvelope'
+
+  /api/forensics/packets:
     post:
       tags:
-        - Reports
-      summary: Create a new report request
-      operationId: createReport
+        - Forensics
+      summary: Store a packet summary
+      operationId: createPacketSummary
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ReportCreateRequest'
-            examples:
-              default:
-                summary: Example report creation payload
-                value:
-                  type: "ALERT_SUMMARY"
-                  format: "CSV"
-                  requestedBy: "admin"
-                  from: "2026-04-01T00:00:00Z"
-                  to: "2026-04-25T23:59:59Z"
+              $ref: '#/components/schemas/PacketSummaryCreateRequest'
       responses:
-        '201':
-          description: Report request created
+        '200':
+          description: Packet summary stored
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Report'
+                $ref: '#/components/schemas/PacketSummaryResponseEnvelope'
         '400':
-          description: Invalid request payload
-
-  /api/reports/{id}:
+          $ref: '#/components/responses/BadRequest'
     get:
       tags:
-        - Reports
-      summary: Get report by id
-      operationId: getReportById
+        - Forensics
+      summary: List packet summaries (paged)
+      operationId: getPacketSummaries
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: Report identifier
-          schema:
-            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
       responses:
         '200':
-          description: Report found
+          description: Page of packet summaries
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Report'
-        '404':
-          description: Report not found
+                $ref: '#/components/schemas/PacketSummaryPageEnvelope'
 
-  /api/reports/{id}/download:
+  /api/forensics/by-alert/{alertId}:
     get:
       tags:
-        - Reports
-      summary: Download generated report
-      operationId: downloadReport
+        - Forensics
+      summary: List packet summaries for an alert (paged)
+      operationId: getPacketSummariesByAlert
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: Report identifier
-          schema:
-            type: string
+        - $ref: '#/components/parameters/AlertIdPath'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
       responses:
         '200':
-          description: Report download
+          description: Page of packet summaries for the alert
           content:
-            application/octet-stream:
+            application/json:
               schema:
-                type: string
-                format: binary
-        '404':
-          description: Report file not found
+                $ref: '#/components/schemas/PacketSummaryPageEnvelope'
+
+  /api/forensics/timeline:
+    get:
+      tags:
+        - Forensics
+      summary: Get the forensic packet timeline (paged)
+      operationId: getForensicsTimeline
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Page of timeline entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForensicsTimelinePageEnvelope'
 
 components:
-  schemas:
-    Alert:
-      $ref: '../schemas/Alert.yaml#/Alert'
-    AlertCreateRequest:
-      $ref: '../schemas/Alert.yaml#/AlertCreateRequest'
+  parameters:
+    DeviceIdPath:
+      name: deviceId
+      in: path
+      required: true
+      description: Device identifier
+      schema:
+        type: string
+    AlertIdPath:
+      name: alertId
+      in: path
+      required: true
+      description: Alert identifier
+      schema:
+        type: string
+    PageParam:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        default: 0
+    SizeParam:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        default: 20
+    DirectionParam:
+      name: direction
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: desc
 
-    Device:
-      $ref: '../schemas/Device.yaml#/Device'
+  responses:
+    BadRequest:
+      description: Invalid request payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ApiResponse:
+      $ref: '../schemas/Common.yaml#/ApiResponse'
+    IndexResponse:
+      $ref: '../schemas/Common.yaml#/IndexResponse'
+    ErrorResponse:
+      $ref: '../schemas/Common.yaml#/ErrorResponse'
+    Link:
+      $ref: '../schemas/Common.yaml#/Link'
+
+    DeviceStatus:
+      $ref: '../schemas/Device.yaml#/DeviceStatus'
+    DeviceRegisterRequest:
+      $ref: '../schemas/Device.yaml#/DeviceRegisterRequest'
     DeviceHeartbeatRequest:
       $ref: '../schemas/Device.yaml#/DeviceHeartbeatRequest'
+    DeviceResponse:
+      $ref: '../schemas/Device.yaml#/DeviceResponse'
+    DeviceStatusResponse:
+      $ref: '../schemas/Device.yaml#/DeviceStatusResponse'
+    DeviceResponseEnvelope:
+      $ref: '../schemas/Device.yaml#/DeviceResponseEnvelope'
+    DeviceStatusEnvelope:
+      $ref: '../schemas/Device.yaml#/DeviceStatusEnvelope'
+    DevicePageEnvelope:
+      $ref: '../schemas/Device.yaml#/DevicePageEnvelope'
 
-    Report:
-      $ref: '../schemas/Report.yaml#/Report'
-    ReportCreateRequest:
-      $ref: '../schemas/Report.yaml#/ReportCreateRequest'
+    AlertType:
+      $ref: '../schemas/Alert.yaml#/AlertType'
+    Severity:
+      $ref: '../schemas/Alert.yaml#/Severity'
+    Protocol:
+      $ref: '../schemas/Alert.yaml#/Protocol'
+    AlertCreateRequest:
+      $ref: '../schemas/Alert.yaml#/AlertCreateRequest'
+    AlertResponse:
+      $ref: '../schemas/Alert.yaml#/AlertResponse'
+    AlertResponseEnvelope:
+      $ref: '../schemas/Alert.yaml#/AlertResponseEnvelope'
+    AlertPageEnvelope:
+      $ref: '../schemas/Alert.yaml#/AlertPageEnvelope'
+
+    TrafficStatsCreateRequest:
+      $ref: '../schemas/Traffic.yaml#/TrafficStatsCreateRequest'
+    TrafficStatsResponse:
+      $ref: '../schemas/Traffic.yaml#/TrafficStatsResponse'
+    TrafficSummaryResponse:
+      $ref: '../schemas/Traffic.yaml#/TrafficSummaryResponse'
+    TrafficStatsResponseEnvelope:
+      $ref: '../schemas/Traffic.yaml#/TrafficStatsResponseEnvelope'
+    TrafficSummaryEnvelope:
+      $ref: '../schemas/Traffic.yaml#/TrafficSummaryEnvelope'
+    TrafficStatsPageEnvelope:
+      $ref: '../schemas/Traffic.yaml#/TrafficStatsPageEnvelope'
+
+    PacketSummaryCreateRequest:
+      $ref: '../schemas/Forensics.yaml#/PacketSummaryCreateRequest'
+    PacketSummaryResponse:
+      $ref: '../schemas/Forensics.yaml#/PacketSummaryResponse'
+    ForensicsTimelineEntry:
+      $ref: '../schemas/Forensics.yaml#/ForensicsTimelineEntry'
+    PacketSummaryResponseEnvelope:
+      $ref: '../schemas/Forensics.yaml#/PacketSummaryResponseEnvelope'
+    PacketSummaryPageEnvelope:
+      $ref: '../schemas/Forensics.yaml#/PacketSummaryPageEnvelope'
+    ForensicsTimelinePageEnvelope:
+      $ref: '../schemas/Forensics.yaml#/ForensicsTimelinePageEnvelope'

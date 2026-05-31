@@ -7,9 +7,13 @@ Contract repository for the OpenWrt IDS/IPS platform backend API.
 This repository contains the OpenAPI contract for the backend services used by the IDS/IPS platform.  
 It defines the API structure for:
 
-- alerts
 - devices and agent heartbeat
-- reports
+- alerts
+- traffic statistics
+- packet/forensics metadata
+
+Every response uses the standard `ApiResponse` envelope (`success`, `message`,
+`data`, `timestamp`); resources and paged collections carry HATEOAS `links`.
 
 The contract repository acts as the source of truth for request payloads, response models, and endpoint definitions.
 
@@ -20,9 +24,11 @@ ids-api-contract/
 ├── openapi/
 │   └── ids-backend.yaml
 ├── schemas/
-│   ├── Alert.yaml
+│   ├── Common.yaml      # ApiResponse envelope, pagination, links, errors
 │   ├── Device.yaml
-│   └── Report.yaml
+│   ├── Alert.yaml
+│   ├── Traffic.yaml
+│   └── Forensics.yaml
 ├── examples/
 │   ├── alert-example.json
 │   └── device-status-example.json

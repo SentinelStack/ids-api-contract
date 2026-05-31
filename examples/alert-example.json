@@ -1,15 +1,29 @@
 {
-  "source": "openwrt-edge-agent",
-  "deviceId": "router-01",
-  "type": "UDP_FLOOD",
-  "severity": "HIGH",
-  "message": "Suspicious UDP traffic spike detected",
-  "sourceIp": "192.168.1.120",
-  "destinationIp": "8.8.8.8",
-  "destinationPort": 53,
-  "detectedAt": "2026-04-25T18:42:00Z",
-  "metadata": {
-    "packetRate": 4200,
-    "protocol": "UDP"
-  }
+  "success": true,
+  "message": "Alert created",
+  "data": {
+    "alertId": "21f088f9-4695-47ae-b9f3-d75df5606b11",
+    "deviceId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    "timestamp": "2026-06-01T10:00:05Z",
+    "type": "UDP_FLOOD_SUSPECTED",
+    "severity": "HIGH",
+    "protocol": "UDP",
+    "sourceIp": "10.10.10.2",
+    "destinationIp": "192.168.1.10",
+    "sourcePort": 5353,
+    "destinationPort": 443,
+    "packetCount": 230,
+    "bytesCount": 120000,
+    "windowSeconds": 5,
+    "description": "Traffic burst above baseline",
+    "acknowledged": false,
+    "createdAt": "2026-06-01T10:00:05Z",
+    "links": [
+      { "rel": "self", "href": "https://api.puk3p.online/api/alerts/21f088f9-4695-47ae-b9f3-d75df5606b11" },
+      { "rel": "device", "href": "https://api.puk3p.online/api/devices/7c9e6679-7425-40de-944b-e07fc1f90ae7" },
+      { "rel": "forensics", "href": "https://api.puk3p.online/api/forensics/by-alert/21f088f9-4695-47ae-b9f3-d75df5606b11?page=0&size=20" },
+      { "rel": "acknowledge", "href": "https://api.puk3p.online/api/alerts/21f088f9-4695-47ae-b9f3-d75df5606b11/acknowledge" }
+    ]
+  },
+  "timestamp": "2026-06-01T10:00:05Z"
 }

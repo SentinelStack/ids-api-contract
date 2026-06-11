@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: IDS Platform Backend API
-  version: 1.1.1
+  version: 1.2.0
   description: >-
     API for the OpenWrt IDS/IPS platform backend (Sentinel). Exposes processed
     security telemetry produced by the edge agent: devices and heartbeats,
@@ -64,7 +64,7 @@ paths:
             schema:
               $ref: '#/components/schemas/DeviceRegisterRequest'
       responses:
-        '200':
+        '201':
           description: Device registered
           content:
             application/json:
@@ -170,7 +170,7 @@ paths:
             schema:
               $ref: '#/components/schemas/AlertCreateRequest'
       responses:
-        '200':
+        '201':
           description: Alert created
           content:
             application/json:
@@ -316,7 +316,7 @@ paths:
             schema:
               $ref: '#/components/schemas/TrafficStatsCreateRequest'
       responses:
-        '200':
+        '201':
           description: Traffic stats stored
           content:
             application/json:
@@ -386,7 +386,7 @@ paths:
             schema:
               $ref: '#/components/schemas/PacketSummaryCreateRequest'
       responses:
-        '200':
+        '201':
           description: Packet summary stored
           content:
             application/json:

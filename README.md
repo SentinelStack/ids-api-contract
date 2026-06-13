@@ -11,6 +11,7 @@ It defines the API structure for:
 - alerts
 - traffic statistics
 - packet/forensics metadata
+- report exports (`/api/reports/*`, ClickHouse-backed download service)
 
 Every response uses the standard `ApiResponse` envelope (`success`, `message`,
 `data`, `timestamp`); resources and paged collections carry HATEOAS `links`.
@@ -28,7 +29,8 @@ ids-api-contract/
 │   ├── Device.yaml
 │   ├── Alert.yaml
 │   ├── Traffic.yaml
-│   └── Forensics.yaml
+│   ├── Forensics.yaml
+│   └── Reports.yaml
 ├── examples/
 │   ├── alert-example.json
 │   └── device-status-example.json

@@ -1,0 +1,133 @@
+DateRange:
+  type: object
+  description: Earliest and latest alert day available in the store.
+  properties:
+    min:
+      type: string
+      nullable: true
+      example: "2026-06-09"
+    max:
+      type: string
+      nullable: true
+      example: "2026-06-13"
+
+FilterMeta:
+  type: object
+  description: Filter options plus the store's date span and row count, to drive a download form.
+  required:
+    - severities
+    - types
+    - protocols
+    - formats
+    - dateRange
+    - totalRows
+    - maxRows
+  properties:
+    severities:
+      type: array
+      items:
+        type: string
+      example: [LOW, MEDIUM, HIGH, CRITICAL]
+    types:
+      type: array
+      items:
+        type: string
+      example: [UDP_FLOOD_SUSPECTED, PORT_SCAN_SUSPECTED, TCP_SPIKE_SUSPECTED, HIGH_TRAFFIC_VOLUME, UNKNOWN]
+    protocols:
+      type: array
+      items:
+        type: string
+      example: [TCP, UDP, ICMP, UNKNOWN]
+    formats:
+      type: array
+      items:
+        type: string
+      example: [csv, json]
+    dateRange:
+      $ref: '#/DateRange'
+    totalRows:
+      type: integer
+      format: int64
+      example: 1057
+    maxRows:
+      type: integer
+      format: int32
+      example: 200000
+
+FilterMetaEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/FilterMeta'
+
+PreviewResponse:
+  type: object
+  description: Small preview of the rows a filtered alert export would contain.
+  required:
+    - returned
+    - limit
+    - hasMore
+    - columns
+    - rows
+  properties:
+    returned:
+      type: integer
+      format: int32
+      example: 16
+    limit:
+      type: integer
+      format: int32
+      example: 100
+    hasMore:
+      type: boolean
+      description: True when the result was capped at `limit`.
+      example: true
+    columns:
+      type: array
+      items:
+        type: string
+      example: [alertId, timestamp, type, severity, protocol, sourceIp, destinationPort]
+    rows:
+      type: array
+      items:
+        type: object
+        additionalProperties:
+          type: string
+
+PreviewResponseEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/PreviewResponse'
+
+CuratedReportInfo:
+  type: object
+  description: A curated report (a live aggregate over the alerts store).
+  required:
+    - key
+    - label
+    - description
+  properties:
+    key:
+      type: string
+      example: top_source_ips
+    label:
+      type: string
+      example: Top Source IPs
+    description:
+      type: string
+      example: Most active attacking source IPs with target/port spread
+
+CuratedReportListEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/CuratedReportInfo'

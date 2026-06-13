@@ -8,9 +8,10 @@ This repository contains the OpenAPI contract for the backend services used by t
 It defines the API structure for:
 
 - devices and agent heartbeat
-- alerts
+- alerts and incident actions (assign, contain, analyst roster)
 - traffic statistics
 - packet/forensics metadata
+- dashboard console view models (`/api/console/*`)
 - report exports (`/api/reports/*`, ClickHouse-backed download service)
 
 Every response uses the standard `ApiResponse` envelope (`success`, `message`,
@@ -30,6 +31,7 @@ ids-api-contract/
 │   ├── Alert.yaml
 │   ├── Traffic.yaml
 │   ├── Forensics.yaml
+│   ├── Console.yaml     # dashboard view models (incidents, dashboard, traffic, forensics)
 │   └── Reports.yaml
 ├── examples/
 │   ├── alert-example.json

@@ -189,3 +189,67 @@ AlertPageEnvelope:
       properties:
         data:
           $ref: '#/AlertPage'
+
+AssignRequest:
+  type: object
+  description: Optional body for the assign action. Names a roster analyst; when omitted the backend auto-picks the least-loaded analyst.
+  properties:
+    analyst:
+      type: string
+      nullable: true
+      example: Ana Popescu
+
+ContainmentResponse:
+  type: object
+  description: An active containment (block) recorded for an attacking source IP.
+  required:
+    - containmentId
+    - alertId
+    - sourceIp
+    - deviceId
+    - reason
+    - severity
+    - active
+    - alreadyActive
+  properties:
+    containmentId:
+      type: string
+    alertId:
+      type: string
+    sourceIp:
+      type: string
+    deviceId:
+      type: string
+    reason:
+      type: string
+      example: "Containment for UDP_FLOOD_SUSPECTED from 203.0.113.10"
+    severity:
+      $ref: '#/Severity'
+    active:
+      type: boolean
+    createdAt:
+      type: string
+      format: date-time
+      nullable: true
+    alreadyActive:
+      type: boolean
+      description: True when a containment for this source IP already existed (idempotent).
+
+ContainmentResponseEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/ContainmentResponse'
+
+AnalystListEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: string
+          example: [Ana Popescu, Mihai Ionescu, Elena Radu, Andrei Stoica]

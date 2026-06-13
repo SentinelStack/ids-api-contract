@@ -1,10 +1,10 @@
 openapi: 3.0.3
 info:
   title: IDS Platform Backend API
-  version: 1.3.0
+  version: 1.4.0
   description: |-
     API for the OpenWrt IDS/IPS platform backend (Sentinel). Exposes processed security telemetry produced by the edge agent: devices and heartbeats, alerts, aggregated traffic statistics and packet/forensics metadata.
-    Also documents the report-export endpoints (`/api/reports/*`), served by the ClickHouse-backed download service behind the same gateway.
+    Also documents the dashboard console view models (`/api/console/*`), the incident actions (assign/contain), and the report-export endpoints (`/api/reports/*`, served by the ClickHouse-backed download service behind the same gateway).
     Every successful response is wrapped in a standard envelope (`success`, `message`, `data`, `timestamp`). Resources and paged collections carry HATEOAS `links`. Errors return an `ErrorResponse`.
   license:
     name: Proprietary
@@ -23,6 +23,8 @@ tags:
     description: Aggregated traffic statistics
   - name: Forensics
     description: Packet-level forensic metadata
+  - name: Console
+    description: Pre-computed, page-specific view models for the dashboard
   - name: Reports
     description: Filtered alert exports (CSV/JSON), served by the ClickHouse download service
 paths:
@@ -433,6 +435,115 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ForensicsTimelinePageEnvelope'
+  /api/alerts/analysts:
+    get:
+      tags:
+        - Alerts
+      summary: List the analyst response roster
+      operationId: getAnalysts
+      responses:
+        '200':
+          description: Analyst roster
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalystListEnvelope'
+  /api/alerts/{alertId}/assign:
+    patch:
+      tags:
+        - Alerts
+      summary: Assign an incident to an analyst
+      description: Assigns the incident to a named roster analyst; when the body is omitted the backend auto-picks the least-loaded analyst.
+      operationId: assignAlert
+      parameters:
+        - $ref: '#/components/parameters/AlertIdPath'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignRequest'
+      responses:
+        '200':
+          description: Updated alert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertResponseEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/alerts/{alertId}/contain:
+    post:
+      tags:
+        - Alerts
+      summary: Contain the attacking source IP for an incident
+      description: Records an active containment (block) for the alert's source IP. Idempotent — one active containment per source IP.
+      operationId: containAlert
+      parameters:
+        - $ref: '#/components/parameters/AlertIdPath'
+      responses:
+        '200':
+          description: Containment record (existing or newly created)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContainmentResponseEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/console/dashboard:
+    get:
+      tags:
+        - Console
+      summary: Get the dashboard view model
+      operationId: getDashboardView
+      responses:
+        '200':
+          description: Dashboard view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardViewEnvelope'
+  /api/console/traffic:
+    get:
+      tags:
+        - Console
+      summary: Get the traffic view model
+      operationId: getTrafficView
+      responses:
+        '200':
+          description: Traffic view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrafficViewEnvelope'
+  /api/console/incidents:
+    get:
+      tags:
+        - Console
+      summary: Get the incidents view model
+      operationId: getIncidentsView
+      responses:
+        '200':
+          description: Incidents view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentsViewEnvelope'
+  /api/console/incidents/{alertId}/forensics:
+    get:
+      tags:
+        - Console
+      summary: Get the forensic detail view for an incident
+      operationId: getIncidentForensicsView
+      parameters:
+        - $ref: '#/components/parameters/AlertIdPath'
+      responses:
+        '200':
+          description: Incident forensics view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentForensicsViewEnvelope'
   /api/reports/meta:
     get:
       tags:
@@ -1604,6 +1715,259 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/CuratedReportInfo'
+    AssignRequest:
+      type: object
+      description: Optional body for the assign action. Names a roster analyst; when omitted the backend auto-picks the least-loaded analyst.
+      properties:
+        analyst:
+          type: string
+          nullable: true
+          example: Ana Popescu
+    ContainmentResponse:
+      type: object
+      description: An active containment (block) recorded for an attacking source IP.
+      required:
+        - containmentId
+        - alertId
+        - sourceIp
+        - deviceId
+        - reason
+        - severity
+        - active
+        - alreadyActive
+      properties:
+        containmentId:
+          type: string
+        alertId:
+          type: string
+        sourceIp:
+          type: string
+        deviceId:
+          type: string
+        reason:
+          type: string
+          example: Containment for UDP_FLOOD_SUSPECTED from 203.0.113.10
+        severity:
+          $ref: '#/components/schemas/Severity'
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+        alreadyActive:
+          type: boolean
+          description: True when a containment for this source IP already existed (idempotent).
+    ContainmentResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ContainmentResponse'
+    AnalystListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                type: string
+              example:
+                - Ana Popescu
+                - Mihai Ionescu
+                - Elena Radu
+                - Andrei Stoica
+    IncidentsView:
+      type: object
+      required:
+        - kpis
+        - timeline
+        - queue
+        - severity
+        - assets
+      properties:
+        kpis:
+          $ref: '#/components/schemas/IncidentKpis'
+        timeline:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimelineBar'
+        queue:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncidentRow'
+        severity:
+          $ref: '#/components/schemas/SeverityDistribution'
+        assets:
+          type: array
+          items:
+            $ref: '#/components/schemas/AffectedAsset'
+    IncidentsViewEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/IncidentsView'
+    IncidentForensicsView:
+      type: object
+      required:
+        - incId
+        - title
+        - source
+        - target
+        - severity
+        - category
+        - contained
+        - stats
+        - protocols
+        - topPorts
+        - packets
+        - empty
+      properties:
+        incId:
+          type: string
+        title:
+          type: string
+        source:
+          type: string
+        target:
+          type: string
+        severity:
+          type: string
+        category:
+          type: string
+        contained:
+          type: boolean
+        stats:
+          type: array
+          items:
+            $ref: '#/components/schemas/ForensicStat'
+        protocols:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProtocolShare'
+        topPorts:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopPort'
+        packets:
+          type: array
+          items:
+            $ref: '#/components/schemas/ForensicPacket'
+        empty:
+          type: boolean
+    IncidentForensicsViewEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/IncidentForensicsView'
+    TrafficView:
+      type: object
+      required:
+        - totalPackets
+        - tcpPct
+        - udpPct
+        - suspiciousPct
+        - protocols
+        - flow
+        - topPorts
+        - topSources
+        - packets
+        - distribution
+      properties:
+        totalPackets:
+          type: string
+          example: 570.8K
+        tcpPct:
+          type: integer
+          format: int32
+        udpPct:
+          type: integer
+          format: int32
+        suspiciousPct:
+          type: string
+          example: '15.0'
+        protocols:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProtocolShare'
+        flow:
+          type: array
+          items:
+            $ref: '#/components/schemas/FlowPoint'
+        topPorts:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopPort'
+        topSources:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopSource'
+        packets:
+          type: array
+          items:
+            $ref: '#/components/schemas/PacketRow'
+        distribution:
+          type: array
+          items:
+            $ref: '#/components/schemas/DistBar'
+    TrafficViewEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/TrafficView'
+    DashboardView:
+      type: object
+      required:
+        - kpis
+        - liveAlerts
+        - volumeDelta
+        - volume
+        - origins
+        - arcs
+        - deviceLat
+        - deviceLng
+      properties:
+        kpis:
+          $ref: '#/components/schemas/DashboardKpis'
+        liveAlerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiveAlert'
+        volumeDelta:
+          type: string
+        volume:
+          type: array
+          items:
+            $ref: '#/components/schemas/VolumeBar'
+        origins:
+          type: array
+          items:
+            $ref: '#/components/schemas/Origin'
+        arcs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ThreatArc'
+        deviceLat:
+          type: number
+          format: double
+        deviceLng:
+          type: number
+          format: double
+    DashboardViewEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/DashboardView'
     LinkList:
       type: array
       description: HATEOAS links to related resources and available actions.
@@ -1685,3 +2049,389 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/ForensicsTimelineEntry'
+    DashboardKpis:
+      type: object
+      required:
+        - totalAlerts
+        - uniqueSources
+        - systemHealth
+      properties:
+        totalAlerts:
+          type: string
+        uniqueSources:
+          type: string
+        systemHealth:
+          type: string
+          example: 100%
+    LiveAlert:
+      type: object
+      required:
+        - severity
+        - level
+        - timestamp
+        - title
+        - source
+        - destination
+      properties:
+        severity:
+          type: string
+        level:
+          type: string
+          enum:
+            - critical
+            - warning
+            - info
+        timestamp:
+          type: string
+          format: date-time
+        title:
+          type: string
+        source:
+          type: string
+        destination:
+          type: string
+    VolumeBar:
+      type: object
+      required:
+        - height
+        - hot
+      properties:
+        height:
+          type: integer
+          format: int32
+        hot:
+          type: boolean
+    Origin:
+      type: object
+      required:
+        - name
+        - pct
+        - rank
+      properties:
+        name:
+          type: string
+          example: United States
+        pct:
+          type: number
+          format: double
+        rank:
+          type: integer
+          format: int32
+    ThreatArc:
+      type: object
+      required:
+        - lat
+        - lng
+        - sourceIp
+        - country
+        - level
+      properties:
+        lat:
+          type: number
+          format: double
+        lng:
+          type: number
+          format: double
+        sourceIp:
+          type: string
+        country:
+          type: string
+        level:
+          type: string
+          enum:
+            - critical
+            - medium
+            - low
+    ProtocolShare:
+      type: object
+      required:
+        - name
+        - pct
+      properties:
+        name:
+          type: string
+          example: TCP
+        pct:
+          type: number
+          format: double
+          example: 61.6
+    FlowPoint:
+      type: object
+      required:
+        - tcp
+        - udp
+      properties:
+        tcp:
+          type: integer
+          format: int32
+        udp:
+          type: integer
+          format: int32
+    TopPort:
+      type: object
+      required:
+        - label
+        - packets
+        - danger
+      properties:
+        label:
+          type: string
+          example: 22 (SSH)
+        packets:
+          type: string
+          example: 1.2K PKTS
+        danger:
+          type: boolean
+          example: true
+    TopSource:
+      type: object
+      required:
+        - ip
+        - scope
+      properties:
+        ip:
+          type: string
+        scope:
+          type: string
+          enum:
+            - LOCAL
+            - EXTERNAL
+    PacketRow:
+      type: object
+      required:
+        - timestamp
+        - protocol
+        - source
+        - destination
+        - port
+        - size
+        - suspicious
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        protocol:
+          type: string
+        source:
+          type: string
+        destination:
+          type: string
+        port:
+          type: integer
+          format: int32
+        size:
+          type: string
+        suspicious:
+          type: boolean
+    DistBar:
+      type: object
+      required:
+        - height
+        - hot
+      properties:
+        height:
+          type: integer
+          format: int32
+        hot:
+          type: boolean
+    IncidentKpis:
+      type: object
+      required:
+        - open
+        - openDelta
+        - critical
+        - investigating
+        - resolved
+        - uniqueSources
+      properties:
+        open:
+          type: integer
+          format: int32
+        openDelta:
+          type: string
+          example: +12 / 1h
+        critical:
+          type: integer
+          format: int32
+        investigating:
+          type: integer
+          format: int32
+        resolved:
+          type: integer
+          format: int32
+        uniqueSources:
+          type: integer
+          format: int32
+    TimelineBar:
+      type: object
+      required:
+        - height
+        - level
+      properties:
+        height:
+          type: integer
+          format: int32
+          example: 80
+        level:
+          type: string
+          enum:
+            - crit
+            - warn
+            - info
+    IncidentRow:
+      type: object
+      required:
+        - id
+        - incId
+        - timestamp
+        - severity
+        - title
+        - source
+        - target
+        - category
+        - status
+        - statusIcon
+        - assignee
+        - acknowledged
+        - contained
+        - confidence
+        - anomalyScore
+        - packetRate
+        - volume
+        - targetPort
+        - protocol
+      properties:
+        id:
+          type: string
+          description: Underlying alertId.
+        incId:
+          type: string
+          example: INC-2026-0613-89F0
+        timestamp:
+          type: string
+          format: date-time
+        severity:
+          type: string
+        title:
+          type: string
+          example: DDoS Vector Identified
+        source:
+          type: string
+        target:
+          type: string
+        category:
+          type: string
+          example: DDoS
+        status:
+          type: string
+          enum:
+            - New
+            - Investigating
+            - Resolved
+        statusIcon:
+          type: string
+        assignee:
+          type: string
+          example: Ana Popescu
+        acknowledged:
+          type: boolean
+        contained:
+          type: boolean
+        confidence:
+          type: integer
+          format: int32
+          example: 96
+        anomalyScore:
+          type: string
+          example: '0.94'
+        packetRate:
+          type: string
+          example: 46 pkt/s
+        volume:
+          type: string
+          example: 21.3 KB
+        targetPort:
+          type: integer
+          format: int32
+        protocol:
+          type: string
+    SeverityDistribution:
+      type: object
+      required:
+        - critical
+        - high
+        - medium
+        - low
+        - total
+      properties:
+        critical:
+          type: integer
+          format: int32
+        high:
+          type: integer
+          format: int32
+        medium:
+          type: integer
+          format: int32
+        low:
+          type: integer
+          format: int32
+        total:
+          type: integer
+          format: int32
+    AffectedAsset:
+      type: object
+      required:
+        - name
+        - ip
+        - icon
+        - level
+      properties:
+        name:
+          type: string
+        ip:
+          type: string
+        icon:
+          type: string
+        level:
+          type: string
+    ForensicStat:
+      type: object
+      required:
+        - label
+        - value
+      properties:
+        label:
+          type: string
+        value:
+          type: string
+    ForensicPacket:
+      type: object
+      required:
+        - timestamp
+        - protocol
+        - source
+        - destination
+        - port
+        - size
+        - flags
+        - suspicious
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        protocol:
+          type: string
+        source:
+          type: string
+        destination:
+          type: string
+        port:
+          type: integer
+          format: int32
+        size:
+          type: string
+        flags:
+          type: string
+        suspicious:
+          type: boolean

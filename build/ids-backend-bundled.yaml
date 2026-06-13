@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: IDS Platform Backend API
-  version: 1.6.0
+  version: 1.6.1
   description: |-
     API for the OpenWrt IDS/IPS platform backend (Sentinel). Exposes processed security telemetry produced by the edge agent: devices and heartbeats, alerts, aggregated traffic statistics and packet/forensics metadata.
     Also documents the dashboard console view models (`/api/console/*`), the incident actions (assign/contain), and the report-export endpoints (`/api/reports/*`, served by the ClickHouse-backed download service behind the same gateway).
@@ -641,7 +641,7 @@ paths:
       operationId: getThreatVolume
       responses:
         '200':
-          description: Hourly threat-volume buckets over the last 24h
+          description: Eight three-hour threat-volume buckets over the last 24h
           content:
             application/json:
               schema:
@@ -1753,7 +1753,7 @@ components:
           type: boolean
     ThreatVolumeView:
       type: object
-      description: 24 hourly threat-volume buckets over the last 24h (from ClickHouse).
+      description: 8 three-hour threat-volume buckets over the last 24h (from ClickHouse).
       required:
         - delta
         - bars

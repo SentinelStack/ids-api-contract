@@ -157,7 +157,7 @@ VolumeBar:
 
 ThreatVolumeView:
   type: object
-  description: 24 hourly threat-volume buckets over the last 24h (from ClickHouse).
+  description: 8 three-hour threat-volume buckets over the last 24h (from ClickHouse).
   required: [delta, bars]
   properties:
     delta:

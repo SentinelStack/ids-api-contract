@@ -143,3 +143,37 @@ CuratedReportListEnvelope:
                 $ref: '#/CuratedReportInfo'
             links:
               $ref: './Common.yaml#/LinkList'
+
+VolumeBar:
+  type: object
+  required: [height, hot]
+  properties:
+    height:
+      type: integer
+      format: int32
+      description: Normalised 0–100 bar height.
+    hot:
+      type: boolean
+
+ThreatVolumeView:
+  type: object
+  description: 24 hourly threat-volume buckets over the last 24h (from ClickHouse).
+  required: [delta, bars]
+  properties:
+    delta:
+      type: string
+      example: "1077 in last 24h"
+    bars:
+      type: array
+      items:
+        $ref: '#/VolumeBar'
+    links:
+      $ref: './Common.yaml#/LinkList'
+
+ThreatVolumeEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/ThreatVolumeView'

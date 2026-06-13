@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: IDS Platform Backend API
-  version: 1.5.1
+  version: 1.6.0
   description: |-
     API for the OpenWrt IDS/IPS platform backend (Sentinel). Exposes processed security telemetry produced by the edge agent: devices and heartbeats, alerts, aggregated traffic statistics and packet/forensics metadata.
     Also documents the dashboard console view models (`/api/console/*`), the incident actions (assign/contain), and the report-export endpoints (`/api/reports/*`, served by the ClickHouse-backed download service behind the same gateway).
@@ -633,6 +633,19 @@ paths:
                 format: binary
         '400':
           $ref: '#/components/responses/BadRequest'
+  /api/reports/volume:
+    get:
+      tags:
+        - Reports
+      summary: 24-hour threat-volume histogram (ClickHouse-backed)
+      operationId: getThreatVolume
+      responses:
+        '200':
+          description: Hourly threat-volume buckets over the last 24h
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThreatVolumeEnvelope'
   /api/reports/curated:
     get:
       tags:
@@ -1726,6 +1739,41 @@ components:
                     $ref: '#/components/schemas/CuratedReportInfo'
                 links:
                   $ref: '#/components/schemas/LinkList'
+    VolumeBar:
+      type: object
+      required:
+        - height
+        - hot
+      properties:
+        height:
+          type: integer
+          format: int32
+          description: Normalised 0–100 bar height.
+        hot:
+          type: boolean
+    ThreatVolumeView:
+      type: object
+      description: 24 hourly threat-volume buckets over the last 24h (from ClickHouse).
+      required:
+        - delta
+        - bars
+      properties:
+        delta:
+          type: string
+          example: 1077 in last 24h
+        bars:
+          type: array
+          items:
+            $ref: '#/components/schemas/VolumeBar'
+        links:
+          $ref: '#/components/schemas/LinkList'
+    ThreatVolumeEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ThreatVolumeView'
     AssignRequest:
       type: object
       description: Optional body for the assign action. Names a roster analyst; when omitted the backend auto-picks the least-loaded analyst.
@@ -1970,7 +2018,7 @@ components:
         volume:
           type: array
           items:
-            $ref: '#/components/schemas/VolumeBar'
+            $ref: '#/components/schemas/VolumeBar-2'
         origins:
           type: array
           items:
@@ -2116,7 +2164,7 @@ components:
           type: string
         destination:
           type: string
-    VolumeBar:
+    VolumeBar-2:
       type: object
       required:
         - height

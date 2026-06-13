@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: IDS Platform Backend API
-  version: 1.5.0
+  version: 1.5.1
   description: >-
     API for the OpenWrt IDS/IPS platform backend (Sentinel). Exposes processed
     security telemetry produced by the edge agent: devices and heartbeats,

@@ -125,6 +125,8 @@ CuratedReportInfo:
     description:
       type: string
       example: Most active attacking source IPs with target/port spread
+    links:
+      $ref: './Common.yaml#/LinkList'
 
 CuratedReportListEnvelope:
   allOf:

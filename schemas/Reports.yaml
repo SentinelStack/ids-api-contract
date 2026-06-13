@@ -53,6 +53,8 @@ FilterMeta:
       type: integer
       format: int32
       example: 200000
+    links:
+      $ref: './Common.yaml#/LinkList'
 
 FilterMetaEnvelope:
   allOf:
@@ -95,6 +97,8 @@ PreviewResponse:
         type: object
         additionalProperties:
           type: string
+    links:
+      $ref: './Common.yaml#/LinkList'
 
 PreviewResponseEnvelope:
   allOf:
@@ -127,7 +131,13 @@ CuratedReportListEnvelope:
     - $ref: './Common.yaml#/ApiResponse'
     - type: object
       properties:
+        # HATEOAS CollectionModel: the reports are under `content`.
         data:
-          type: array
-          items:
-            $ref: '#/CuratedReportInfo'
+          type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/CuratedReportInfo'
+            links:
+              $ref: './Common.yaml#/LinkList'

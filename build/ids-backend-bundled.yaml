@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: IDS Platform Backend API
-  version: 1.4.0
+  version: 1.5.0
   description: |-
     API for the OpenWrt IDS/IPS platform backend (Sentinel). Exposes processed security telemetry produced by the edge agent: devices and heartbeats, alerts, aggregated traffic statistics and packet/forensics metadata.
     Also documents the dashboard console view models (`/api/console/*`), the incident actions (assign/contain), and the report-export endpoints (`/api/reports/*`, served by the ClickHouse-backed download service behind the same gateway).
@@ -1635,6 +1635,8 @@ components:
           type: integer
           format: int32
           example: 200000
+        links:
+          $ref: '#/components/schemas/LinkList'
     FilterMetaEnvelope:
       allOf:
         - $ref: '#/components/schemas/ApiResponse'
@@ -1682,6 +1684,8 @@ components:
             type: object
             additionalProperties:
               type: string
+        links:
+          $ref: '#/components/schemas/LinkList'
     PreviewResponseEnvelope:
       allOf:
         - $ref: '#/components/schemas/ApiResponse'
@@ -1712,9 +1716,14 @@ components:
         - type: object
           properties:
             data:
-              type: array
-              items:
-                $ref: '#/components/schemas/CuratedReportInfo'
+              type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/CuratedReportInfo'
+                links:
+                  $ref: '#/components/schemas/LinkList'
     AssignRequest:
       type: object
       description: Optional body for the assign action. Names a roster analyst; when omitted the backend auto-picks the least-loaded analyst.
@@ -1758,6 +1767,8 @@ components:
         alreadyActive:
           type: boolean
           description: True when a containment for this source IP already existed (idempotent).
+        links:
+          $ref: '#/components/schemas/LinkList'
     ContainmentResponseEnvelope:
       allOf:
         - $ref: '#/components/schemas/ApiResponse'
@@ -1771,14 +1782,19 @@ components:
         - type: object
           properties:
             data:
-              type: array
-              items:
-                type: string
-              example:
-                - Ana Popescu
-                - Mihai Ionescu
-                - Elena Radu
-                - Andrei Stoica
+              type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    type: string
+                  example:
+                    - Ana Popescu
+                    - Mihai Ionescu
+                    - Elena Radu
+                    - Andrei Stoica
+                links:
+                  $ref: '#/components/schemas/LinkList'
     IncidentsView:
       type: object
       required:
@@ -1804,6 +1820,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AffectedAsset'
+        links:
+          $ref: '#/components/schemas/LinkList'
     IncidentsViewEnvelope:
       allOf:
         - $ref: '#/components/schemas/ApiResponse'
@@ -1859,6 +1877,8 @@ components:
             $ref: '#/components/schemas/ForensicPacket'
         empty:
           type: boolean
+        links:
+          $ref: '#/components/schemas/LinkList'
     IncidentForensicsViewEnvelope:
       allOf:
         - $ref: '#/components/schemas/ApiResponse'
@@ -1916,6 +1936,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DistBar'
+        links:
+          $ref: '#/components/schemas/LinkList'
     TrafficViewEnvelope:
       allOf:
         - $ref: '#/components/schemas/ApiResponse'
@@ -1961,6 +1983,8 @@ components:
         deviceLng:
           type: number
           format: double
+        links:
+          $ref: '#/components/schemas/LinkList'
     DashboardViewEnvelope:
       allOf:
         - $ref: '#/components/schemas/ApiResponse'

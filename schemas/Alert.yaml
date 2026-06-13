@@ -234,6 +234,8 @@ ContainmentResponse:
     alreadyActive:
       type: boolean
       description: True when a containment for this source IP already existed (idempotent).
+    links:
+      $ref: './Common.yaml#/LinkList'
 
 ContainmentResponseEnvelope:
   allOf:
@@ -248,8 +250,14 @@ AnalystListEnvelope:
     - $ref: './Common.yaml#/ApiResponse'
     - type: object
       properties:
+        # HATEOAS CollectionModel: the roster is under `content`.
         data:
-          type: array
-          items:
-            type: string
-          example: [Ana Popescu, Mihai Ionescu, Elena Radu, Andrei Stoica]
+          type: object
+          properties:
+            content:
+              type: array
+              items:
+                type: string
+              example: [Ana Popescu, Mihai Ionescu, Elena Radu, Andrei Stoica]
+            links:
+              $ref: './Common.yaml#/LinkList'

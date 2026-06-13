@@ -193,6 +193,8 @@ IncidentsView:
       type: array
       items:
         $ref: '#/AffectedAsset'
+    links:
+      $ref: './Common.yaml#/LinkList'
 
 IncidentsViewEnvelope:
   allOf:
@@ -271,6 +273,8 @@ IncidentForensicsView:
         $ref: '#/ForensicPacket'
     empty:
       type: boolean
+    links:
+      $ref: './Common.yaml#/LinkList'
 
 IncidentForensicsViewEnvelope:
   allOf:
@@ -383,6 +387,8 @@ TrafficView:
       type: array
       items:
         $ref: '#/DistBar'
+    links:
+      $ref: './Common.yaml#/LinkList'
 
 TrafficViewEnvelope:
   allOf:
@@ -496,6 +502,8 @@ DashboardView:
     deviceLng:
       type: number
       format: double
+    links:
+      $ref: './Common.yaml#/LinkList'
 
 DashboardViewEnvelope:
   allOf:

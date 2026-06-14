@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: IDS Platform Backend API
-  version: 1.6.1
+  version: 1.7.0
   description: |-
     API for the OpenWrt IDS/IPS platform backend (Sentinel). Exposes processed security telemetry produced by the edge agent: devices and heartbeats, alerts, aggregated traffic statistics and packet/forensics metadata.
     Also documents the dashboard console view models (`/api/console/*`), the incident actions (assign/contain), and the report-export endpoints (`/api/reports/*`, served by the ClickHouse-backed download service behind the same gateway).
@@ -544,6 +544,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/IncidentForensicsViewEnvelope'
+  /api/console/topology/events:
+    get:
+      tags:
+        - Console
+      summary: Topology live feed — real domain events
+      description: 'Recent events synthesised from live activity: alerts (anomaly / containment), device registrations and heartbeat status. Newest first.'
+      operationId: getTopologyEvents
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 40
+      responses:
+        '200':
+          description: Topology events (newest first)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopologyEventListEnvelope'
+  /api/console/topology/logs:
+    get:
+      tags:
+        - Console
+      summary: Topology live feed — the backend's own runtime logs
+      description: The backend service's most recent runtime log lines, captured by an in-memory ring-buffer appender. Newest first.
+      operationId: getTopologyLogs
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 40
+      responses:
+        '200':
+          description: Runtime log lines (newest first)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuntimeLogListEnvelope'
   /api/reports/meta:
     get:
       tags:
@@ -2042,6 +2086,81 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/DashboardView'
+    TopologyEvent:
+      type: object
+      description: A topology live-feed line synthesised from real domain activity.
+      required:
+        - at
+        - kind
+        - message
+        - tone
+      properties:
+        at:
+          type: string
+          format: date-time
+        kind:
+          type: string
+          example: ANOMALY_DETECTION
+          description: Event code (NODE_UP, ANOMALY_DETECTION, CONTAINMENT, HEARTBEAT, DEVICE_WARN).
+        message:
+          type: string
+          example: Udp Flood Suspected on edge-router-01 from 203.0.113.7
+        tone:
+          type: string
+          enum:
+            - primary
+            - secondary
+            - error
+            - warning
+            - muted
+    TopologyEventListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TopologyEvent'
+                links:
+                  $ref: '#/components/schemas/LinkList'
+    RuntimeLogLine:
+      type: object
+      description: A raw runtime log line from the backend service (in-memory ring buffer).
+      required:
+        - at
+        - level
+        - logger
+        - message
+      properties:
+        at:
+          type: string
+          format: date-time
+        level:
+          type: string
+          example: INFO
+        logger:
+          type: string
+          example: r.p.s.console.ConsoleService
+        message:
+          type: string
+    RuntimeLogListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/RuntimeLogLine'
+                links:
+                  $ref: '#/components/schemas/LinkList'
     LinkList:
       type: array
       description: HATEOAS links to related resources and available actions.

@@ -512,3 +512,69 @@ DashboardViewEnvelope:
       properties:
         data:
           $ref: '#/DashboardView'
+
+TopologyEvent:
+  type: object
+  description: A topology live-feed line synthesised from real domain activity.
+  required: [at, kind, message, tone]
+  properties:
+    at:
+      type: string
+      format: date-time
+    kind:
+      type: string
+      example: ANOMALY_DETECTION
+      description: Event code (NODE_UP, ANOMALY_DETECTION, CONTAINMENT, HEARTBEAT, DEVICE_WARN).
+    message:
+      type: string
+      example: Udp Flood Suspected on edge-router-01 from 203.0.113.7
+    tone:
+      type: string
+      enum: [primary, secondary, error, warning, muted]
+
+TopologyEventListEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/TopologyEvent'
+            links:
+              $ref: './Common.yaml#/LinkList'
+
+RuntimeLogLine:
+  type: object
+  description: A raw runtime log line from the backend service (in-memory ring buffer).
+  required: [at, level, logger, message]
+  properties:
+    at:
+      type: string
+      format: date-time
+    level:
+      type: string
+      example: INFO
+    logger:
+      type: string
+      example: r.p.s.console.ConsoleService
+    message:
+      type: string
+
+RuntimeLogListEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/RuntimeLogLine'
+            links:
+              $ref: './Common.yaml#/LinkList'

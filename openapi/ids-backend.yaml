@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: IDS Platform Backend API
-  version: 1.8.0
+  version: 1.9.0
   description: >-
     API for the OpenWrt IDS/IPS platform backend (Sentinel). Exposes processed
     security telemetry produced by the edge agent: devices and heartbeats,
@@ -37,6 +37,8 @@ tags:
     description: Pre-computed, page-specific view models for the dashboard
   - name: Reports
     description: Filtered alert exports (CSV/JSON), served by the ClickHouse download service
+  - name: Rules
+    description: OpenWrt edge detection rules and the agent-facing ruleset routers pull
 
 security: []
 
@@ -629,6 +631,197 @@ paths:
               schema:
                 $ref: '#/components/schemas/IncidentForensicsViewEnvelope'
 
+  /api/console/rules:
+    get:
+      tags:
+        - Console
+      summary: Rules console — KPI strip + live trigger feed
+      operationId: getRulesConsole
+      responses:
+        '200':
+          description: Rules console view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RulesConsoleEnvelope'
+
+  /api/rules:
+    get:
+      tags:
+        - Rules
+      summary: List edge detection rules
+      operationId: listRules
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/RuleCategory'
+        - name: interfaceScope
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: deviceId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rules
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleListEnvelope'
+    post:
+      tags:
+        - Rules
+      summary: Create a rule
+      operationId: createRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuleUpsertRequest'
+      responses:
+        '201':
+          description: Rule created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleEnvelope'
+
+  /api/rules/{ruleId}:
+    parameters:
+      - name: ruleId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+        - Rules
+      summary: Get a rule
+      operationId: getRule
+      responses:
+        '200':
+          description: Rule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - Rules
+      summary: Update a rule
+      operationId: updateRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuleUpsertRequest'
+      responses:
+        '200':
+          description: Rule updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleEnvelope'
+    delete:
+      tags:
+        - Rules
+      summary: Delete a rule
+      operationId: deleteRule
+      responses:
+        '200':
+          description: Rule deleted
+
+  /api/rules/{ruleId}/enable:
+    post:
+      tags:
+        - Rules
+      summary: Enable a rule
+      operationId: enableRule
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rule enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleEnvelope'
+
+  /api/rules/{ruleId}/disable:
+    post:
+      tags:
+        - Rules
+      summary: Disable a rule
+      operationId: disableRule
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rule disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleEnvelope'
+
+  /api/rules/{ruleId}/deploy:
+    post:
+      tags:
+        - Rules
+      summary: Deploy a rule to its target router
+      operationId: deployRule
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rule deployed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleEnvelope'
+
+  /api/devices/{deviceId}/ruleset:
+    get:
+      tags:
+        - Rules
+      summary: Agent-facing effective ruleset for a router
+      description: >-
+        The compact ruleset an OpenWrt edge agent pulls and applies to its
+        on-router anomaly detector. Merges enabled rules targeting the device
+        plus global rules; threshold keys (udpPacketThreshold, tcpPacketThreshold,
+        byteThreshold) drive the detector directly.
+      operationId: getAgentRuleset
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdPath'
+      responses:
+        '200':
+          description: Effective ruleset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentRulesetEnvelope'
+
   /api/console/topology/events:
     get:
       tags:
@@ -1146,3 +1339,29 @@ components:
       $ref: '../schemas/Console.yaml#/RuntimeLogLine'
     RuntimeLogListEnvelope:
       $ref: '../schemas/Console.yaml#/RuntimeLogListEnvelope'
+    RulesConsoleView:
+      $ref: '../schemas/Rules.yaml#/RulesConsoleView'
+    RulesConsoleEnvelope:
+      $ref: '../schemas/Rules.yaml#/RulesConsoleEnvelope'
+    RuleSeverity:
+      $ref: '../schemas/Rules.yaml#/RuleSeverity'
+    RuleMode:
+      $ref: '../schemas/Rules.yaml#/RuleMode'
+    RuleCategory:
+      $ref: '../schemas/Rules.yaml#/RuleCategory'
+    RuleAction:
+      $ref: '../schemas/Rules.yaml#/RuleAction'
+    Rule:
+      $ref: '../schemas/Rules.yaml#/Rule'
+    RuleUpsertRequest:
+      $ref: '../schemas/Rules.yaml#/RuleUpsertRequest'
+    RuleEnvelope:
+      $ref: '../schemas/Rules.yaml#/RuleEnvelope'
+    RuleListEnvelope:
+      $ref: '../schemas/Rules.yaml#/RuleListEnvelope'
+    AgentRule:
+      $ref: '../schemas/Rules.yaml#/AgentRule'
+    AgentRuleset:
+      $ref: '../schemas/Rules.yaml#/AgentRuleset'
+    AgentRulesetEnvelope:
+      $ref: '../schemas/Rules.yaml#/AgentRulesetEnvelope'

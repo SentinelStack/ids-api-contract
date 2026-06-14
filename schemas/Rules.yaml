@@ -1,0 +1,256 @@
+RuleSeverity:
+  type: string
+  enum: [LOW, MEDIUM, HIGH, CRITICAL]
+
+RuleMode:
+  type: string
+  enum: [IDS, IPS, IDS_IPS]
+
+RuleCategory:
+  type: string
+  enum: [DDOS, SYN_FLOOD, PORT_SCAN, DNS, OUTBOUND, OTHER]
+
+RuleAction:
+  type: string
+  enum: [GENERATE_ALERT, PUBLISH_TO_BACKEND, INCREASE_RISK_SCORE, RATE_LIMIT, DROP_TRAFFIC]
+
+Rule:
+  type: object
+  description: An edge detection rule executed directly on an OpenWrt router.
+  required: [ruleId, name, category, interfaceScope, severity, mode, enabled]
+  properties:
+    ruleId:
+      type: string
+      example: EDGE-RULE-DDOS-UDP-001
+    name:
+      type: string
+      example: DDoS UDP Spike Detection
+    signal:
+      type: string
+      example: packet_rate + source_diversity
+    category:
+      $ref: '#/RuleCategory'
+    interfaceScope:
+      type: string
+      example: wan
+    severity:
+      $ref: '#/RuleSeverity'
+    mode:
+      $ref: '#/RuleMode'
+    enabled:
+      type: boolean
+    version:
+      type: string
+      example: v1.4
+    targetDeviceId:
+      type: string
+      description: Router this rule targets; blank applies to every edge agent.
+      example: edge-router-01
+    logic:
+      type: array
+      items:
+        type: string
+    actions:
+      type: array
+      items:
+        $ref: '#/RuleAction'
+    thresholds:
+      type: object
+      additionalProperties:
+        type: integer
+        format: int64
+      description: Tunable detector values the agent applies (e.g. udpPacketThreshold).
+    cpuImpact:
+      type: string
+    memImpact:
+      type: string
+    evalMs:
+      type: number
+      format: double
+    matches:
+      type: integer
+      format: int64
+    deployedAt:
+      type: string
+      format: date-time
+      nullable: true
+    links:
+      $ref: './Common.yaml#/LinkList'
+
+RuleUpsertRequest:
+  type: object
+  required: [name]
+  properties:
+    name:
+      type: string
+    ruleId:
+      type: string
+      nullable: true
+    signal:
+      type: string
+    category:
+      $ref: '#/RuleCategory'
+    interfaceScope:
+      type: string
+    severity:
+      $ref: '#/RuleSeverity'
+    mode:
+      $ref: '#/RuleMode'
+    enabled:
+      type: boolean
+    version:
+      type: string
+    targetDeviceId:
+      type: string
+    logic:
+      type: array
+      items:
+        type: string
+    actions:
+      type: array
+      items:
+        $ref: '#/RuleAction'
+    thresholds:
+      type: object
+      additionalProperties:
+        type: integer
+        format: int64
+    cpuImpact:
+      type: string
+    memImpact:
+      type: string
+    evalMs:
+      type: number
+      format: double
+
+RuleEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/Rule'
+
+RuleListEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/Rule'
+            links:
+              $ref: './Common.yaml#/LinkList'
+
+AgentRule:
+  type: object
+  properties:
+    ruleId:
+      type: string
+    type:
+      type: string
+    mode:
+      $ref: '#/RuleMode'
+    severity:
+      $ref: '#/RuleSeverity'
+    interfaceScope:
+      type: string
+    thresholds:
+      type: object
+      additionalProperties:
+        type: integer
+        format: int64
+
+AgentRuleset:
+  type: object
+  description: Compact ruleset a router pulls and applies to its anomaly detector.
+  required: [deviceId, version, thresholds, rules]
+  properties:
+    deviceId:
+      type: string
+    version:
+      type: string
+    generatedAt:
+      type: string
+      format: date-time
+    thresholds:
+      type: object
+      additionalProperties:
+        type: integer
+        format: int64
+    rules:
+      type: array
+      items:
+        $ref: '#/AgentRule'
+    links:
+      $ref: './Common.yaml#/LinkList'
+
+AgentRulesetEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/AgentRuleset'
+
+RulesConsoleView:
+  type: object
+  properties:
+    kpis:
+      $ref: '#/RulesKpis'
+    triggers:
+      type: array
+      items:
+        $ref: '#/RuleTrigger'
+    links:
+      $ref: './Common.yaml#/LinkList'
+
+RulesKpis:
+  type: object
+  properties:
+    activeRouterRules:
+      type: integer
+      format: int64
+    agentsSynced:
+      type: string
+      example: "11 / 12"
+    rulesTriggeredToday:
+      type: integer
+      format: int64
+    avgEvaluationMs:
+      type: number
+      format: double
+    localMitigations:
+      type: integer
+      format: int64
+
+RuleTrigger:
+  type: object
+  properties:
+    at:
+      type: string
+      format: date-time
+    ruleId:
+      type: string
+    deviceId:
+      type: string
+    interfaceScope:
+      type: string
+    signal:
+      type: string
+    value:
+      type: string
+    tone:
+      type: string
+
+RulesConsoleEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/RulesConsoleView'

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: IDS Platform Backend API
-  version: 1.8.0
+  version: 1.9.0
   description: |-
     API for the OpenWrt IDS/IPS platform backend (Sentinel). Exposes processed security telemetry produced by the edge agent: devices and heartbeats, alerts, aggregated traffic statistics and packet/forensics metadata.
     Also documents the dashboard console view models (`/api/console/*`), the incident actions (assign/contain), and the report-export endpoints (`/api/reports/*`, served by the ClickHouse-backed download service behind the same gateway).
@@ -27,6 +27,8 @@ tags:
     description: Pre-computed, page-specific view models for the dashboard
   - name: Reports
     description: Filtered alert exports (CSV/JSON), served by the ClickHouse download service
+  - name: Rules
+    description: OpenWrt edge detection rules and the agent-facing ruleset routers pull
 paths:
   /api:
     get:
@@ -580,6 +582,186 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/IncidentForensicsViewEnvelope'
+  /api/console/rules:
+    get:
+      tags:
+        - Console
+      summary: Rules console — KPI strip + live trigger feed
+      operationId: getRulesConsole
+      responses:
+        '200':
+          description: Rules console view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RulesConsoleEnvelope'
+  /api/rules:
+    get:
+      tags:
+        - Rules
+      summary: List edge detection rules
+      operationId: listRules
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/RuleCategory'
+        - name: interfaceScope
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: deviceId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rules
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleListEnvelope'
+    post:
+      tags:
+        - Rules
+      summary: Create a rule
+      operationId: createRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuleUpsertRequest'
+      responses:
+        '201':
+          description: Rule created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleEnvelope'
+  /api/rules/{ruleId}:
+    parameters:
+      - name: ruleId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+        - Rules
+      summary: Get a rule
+      operationId: getRule
+      responses:
+        '200':
+          description: Rule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - Rules
+      summary: Update a rule
+      operationId: updateRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuleUpsertRequest'
+      responses:
+        '200':
+          description: Rule updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleEnvelope'
+    delete:
+      tags:
+        - Rules
+      summary: Delete a rule
+      operationId: deleteRule
+      responses:
+        '200':
+          description: Rule deleted
+  /api/rules/{ruleId}/enable:
+    post:
+      tags:
+        - Rules
+      summary: Enable a rule
+      operationId: enableRule
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rule enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleEnvelope'
+  /api/rules/{ruleId}/disable:
+    post:
+      tags:
+        - Rules
+      summary: Disable a rule
+      operationId: disableRule
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rule disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleEnvelope'
+  /api/rules/{ruleId}/deploy:
+    post:
+      tags:
+        - Rules
+      summary: Deploy a rule to its target router
+      operationId: deployRule
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rule deployed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleEnvelope'
+  /api/devices/{deviceId}/ruleset:
+    get:
+      tags:
+        - Rules
+      summary: Agent-facing effective ruleset for a router
+      description: The compact ruleset an OpenWrt edge agent pulls and applies to its on-router anomaly detector. Merges enabled rules targeting the device plus global rules; threshold keys (udpPacketThreshold, tcpPacketThreshold, byteThreshold) drive the detector directly.
+      operationId: getAgentRuleset
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdPath'
+      responses:
+        '200':
+          description: Effective ruleset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentRulesetEnvelope'
   /api/console/topology/events:
     get:
       tags:
@@ -2209,6 +2391,242 @@ components:
                     $ref: '#/components/schemas/RuntimeLogLine'
                 links:
                   $ref: '#/components/schemas/LinkList'
+    RulesConsoleView:
+      type: object
+      properties:
+        kpis:
+          $ref: '#/components/schemas/RulesKpis'
+        triggers:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleTrigger'
+        links:
+          $ref: '#/components/schemas/LinkList'
+    RulesConsoleEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/RulesConsoleView'
+    RuleSeverity:
+      type: string
+      enum:
+        - LOW
+        - MEDIUM
+        - HIGH
+        - CRITICAL
+    RuleMode:
+      type: string
+      enum:
+        - IDS
+        - IPS
+        - IDS_IPS
+    RuleCategory:
+      type: string
+      enum:
+        - DDOS
+        - SYN_FLOOD
+        - PORT_SCAN
+        - DNS
+        - OUTBOUND
+        - OTHER
+    RuleAction:
+      type: string
+      enum:
+        - GENERATE_ALERT
+        - PUBLISH_TO_BACKEND
+        - INCREASE_RISK_SCORE
+        - RATE_LIMIT
+        - DROP_TRAFFIC
+    Rule:
+      type: object
+      description: An edge detection rule executed directly on an OpenWrt router.
+      required:
+        - ruleId
+        - name
+        - category
+        - interfaceScope
+        - severity
+        - mode
+        - enabled
+      properties:
+        ruleId:
+          type: string
+          example: EDGE-RULE-DDOS-UDP-001
+        name:
+          type: string
+          example: DDoS UDP Spike Detection
+        signal:
+          type: string
+          example: packet_rate + source_diversity
+        category:
+          $ref: '#/components/schemas/RuleCategory'
+        interfaceScope:
+          type: string
+          example: wan
+        severity:
+          $ref: '#/components/schemas/RuleSeverity'
+        mode:
+          $ref: '#/components/schemas/RuleMode'
+        enabled:
+          type: boolean
+        version:
+          type: string
+          example: v1.4
+        targetDeviceId:
+          type: string
+          description: Router this rule targets; blank applies to every edge agent.
+          example: edge-router-01
+        logic:
+          type: array
+          items:
+            type: string
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleAction'
+        thresholds:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+          description: Tunable detector values the agent applies (e.g. udpPacketThreshold).
+        cpuImpact:
+          type: string
+        memImpact:
+          type: string
+        evalMs:
+          type: number
+          format: double
+        matches:
+          type: integer
+          format: int64
+        deployedAt:
+          type: string
+          format: date-time
+          nullable: true
+        links:
+          $ref: '#/components/schemas/LinkList'
+    RuleUpsertRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        ruleId:
+          type: string
+          nullable: true
+        signal:
+          type: string
+        category:
+          $ref: '#/components/schemas/RuleCategory'
+        interfaceScope:
+          type: string
+        severity:
+          $ref: '#/components/schemas/RuleSeverity'
+        mode:
+          $ref: '#/components/schemas/RuleMode'
+        enabled:
+          type: boolean
+        version:
+          type: string
+        targetDeviceId:
+          type: string
+        logic:
+          type: array
+          items:
+            type: string
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleAction'
+        thresholds:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+        cpuImpact:
+          type: string
+        memImpact:
+          type: string
+        evalMs:
+          type: number
+          format: double
+    RuleEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Rule'
+    RuleListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Rule'
+                links:
+                  $ref: '#/components/schemas/LinkList'
+    AgentRule:
+      type: object
+      properties:
+        ruleId:
+          type: string
+        type:
+          type: string
+        mode:
+          $ref: '#/components/schemas/RuleMode'
+        severity:
+          $ref: '#/components/schemas/RuleSeverity'
+        interfaceScope:
+          type: string
+        thresholds:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+    AgentRuleset:
+      type: object
+      description: Compact ruleset a router pulls and applies to its anomaly detector.
+      required:
+        - deviceId
+        - version
+        - thresholds
+        - rules
+      properties:
+        deviceId:
+          type: string
+        version:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
+        thresholds:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentRule'
+        links:
+          $ref: '#/components/schemas/LinkList'
+    AgentRulesetEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AgentRuleset'
     LinkList:
       type: array
       description: HATEOAS links to related resources and available actions.
@@ -2676,3 +3094,39 @@ components:
           type: string
         suspicious:
           type: boolean
+    RulesKpis:
+      type: object
+      properties:
+        activeRouterRules:
+          type: integer
+          format: int64
+        agentsSynced:
+          type: string
+          example: 11 / 12
+        rulesTriggeredToday:
+          type: integer
+          format: int64
+        avgEvaluationMs:
+          type: number
+          format: double
+        localMitigations:
+          type: integer
+          format: int64
+    RuleTrigger:
+      type: object
+      properties:
+        at:
+          type: string
+          format: date-time
+        ruleId:
+          type: string
+        deviceId:
+          type: string
+        interfaceScope:
+          type: string
+        signal:
+          type: string
+        value:
+          type: string
+        tone:
+          type: string

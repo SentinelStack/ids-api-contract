@@ -3,7 +3,11 @@ DeviceStatus:
   enum:
     - ONLINE
     - OFFLINE
+    - QUARANTINED
     - UNKNOWN
+  description: >-
+    Lifecycle status. QUARANTINED is operator-applied containment: a quarantined
+    device stays isolated regardless of heartbeats until it is explicitly released.
   example: ONLINE
 
 DeviceRegisterRequest:
@@ -75,6 +79,11 @@ DeviceResponse:
       type: string
       nullable: true
       example: "Linksys WRT3200ACM"
+    quarantinedAt:
+      type: string
+      format: date-time
+      nullable: true
+      description: When the device was put under quarantine; null when not contained.
     createdAt:
       type: string
       format: date-time
@@ -99,6 +108,11 @@ DeviceStatusResponse:
     lastSeenAt:
       type: string
       format: date-time
+    quarantinedAt:
+      type: string
+      format: date-time
+      nullable: true
+      description: When the device was put under quarantine; null when not contained.
     links:
       $ref: './Common.yaml#/LinkList'
 

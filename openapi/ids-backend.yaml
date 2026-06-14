@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: IDS Platform Backend API
-  version: 1.7.0
+  version: 1.8.0
   description: >-
     API for the OpenWrt IDS/IPS platform backend (Sentinel). Exposes processed
     security telemetry produced by the edge agent: devices and heartbeats,
@@ -159,6 +159,49 @@ paths:
       responses:
         '200':
           description: Device status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceStatusEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/devices/{deviceId}/quarantine:
+    post:
+      tags:
+        - Devices
+      summary: Quarantine (isolate) a device
+      description: >-
+        Marks the device QUARANTINED. While contained, incoming heartbeats are
+        still recorded but no longer restore the device to ONLINE — only an
+        explicit release lifts isolation. Idempotent.
+      operationId: quarantineDevice
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdPath'
+      responses:
+        '200':
+          description: Device quarantined
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceStatusEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/devices/{deviceId}/release:
+    post:
+      tags:
+        - Devices
+      summary: Release a device from quarantine
+      description: >-
+        Lifts containment: the device drops to OFFLINE and recovers to ONLINE on
+        its next heartbeat. Idempotent.
+      operationId: releaseDevice
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdPath'
+      responses:
+        '200':
+          description: Device released from quarantine
           content:
             application/json:
               schema:

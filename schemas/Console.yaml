@@ -627,3 +627,82 @@ NodeDetailEnvelope:
       properties:
         data:
           $ref: '#/NodeDetailView'
+
+LogKpis:
+  type: object
+  properties:
+    logsIngested24h:
+      type: integer
+      format: int64
+    edgeLogs:
+      type: integer
+      format: int64
+    criticalEvents:
+      type: integer
+      format: int64
+    warningEvents:
+      type: integer
+      format: int64
+    ingestionDelayMs:
+      type: integer
+      format: int64
+
+LogEntry:
+  type: object
+  description: One unified log/event entry (real source — backend logs, alerts, devices).
+  properties:
+    at:
+      type: string
+      format: date-time
+    severity:
+      type: string
+      example: CRITICAL
+    source:
+      type: string
+      example: Router Rules
+    icon:
+      type: string
+    device:
+      type: string
+    eventType:
+      type: string
+      example: UDP_FLOOD_SUSPECTED
+    message:
+      type: string
+    traceId:
+      type: string
+    tone:
+      type: string
+
+PipelineComponent:
+  type: object
+  properties:
+    name:
+      type: string
+    status:
+      type: string
+      example: Healthy
+
+LogStreamView:
+  type: object
+  properties:
+    kpis:
+      $ref: '#/LogKpis'
+    entries:
+      type: array
+      items:
+        $ref: '#/LogEntry'
+    pipeline:
+      type: array
+      items:
+        $ref: '#/PipelineComponent'
+    links:
+      $ref: './Common.yaml#/LinkList'
+
+LogStreamEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/LogStreamView'

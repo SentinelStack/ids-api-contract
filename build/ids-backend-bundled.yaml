@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: IDS Platform Backend API
-  version: 1.10.0
+  version: 1.11.0
   description: |-
     API for the OpenWrt IDS/IPS platform backend (Sentinel). Exposes processed security telemetry produced by the edge agent: devices and heartbeats, alerts, aggregated traffic statistics and packet/forensics metadata.
     Also documents the dashboard console view models (`/api/console/*`), the incident actions (assign/contain), and the report-export endpoints (`/api/reports/*`, served by the ClickHouse-backed download service behind the same gateway).
@@ -762,6 +762,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AgentRulesetEnvelope'
+  /api/console/logs:
+    get:
+      tags:
+        - Console
+      summary: Unified log/event stream (Log Viewer)
+      description: Merges real sources into one stream — the backend's own runtime logs, recent alerts (edge detections) and device lifecycle events — plus KPIs and pipeline integrity.
+      operationId: getLogStream
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 80
+      responses:
+        '200':
+          description: Log stream
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogStreamEnvelope'
   /api/console/topology/node/{deviceId}:
     get:
       tags:
@@ -2471,6 +2493,80 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/NodeDetailView'
+    LogKpis:
+      type: object
+      properties:
+        logsIngested24h:
+          type: integer
+          format: int64
+        edgeLogs:
+          type: integer
+          format: int64
+        criticalEvents:
+          type: integer
+          format: int64
+        warningEvents:
+          type: integer
+          format: int64
+        ingestionDelayMs:
+          type: integer
+          format: int64
+    LogEntry:
+      type: object
+      description: One unified log/event entry (real source — backend logs, alerts, devices).
+      properties:
+        at:
+          type: string
+          format: date-time
+        severity:
+          type: string
+          example: CRITICAL
+        source:
+          type: string
+          example: Router Rules
+        icon:
+          type: string
+        device:
+          type: string
+        eventType:
+          type: string
+          example: UDP_FLOOD_SUSPECTED
+        message:
+          type: string
+        traceId:
+          type: string
+        tone:
+          type: string
+    PipelineComponent:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          example: Healthy
+    LogStreamView:
+      type: object
+      properties:
+        kpis:
+          $ref: '#/components/schemas/LogKpis'
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogEntry'
+        pipeline:
+          type: array
+          items:
+            $ref: '#/components/schemas/PipelineComponent'
+        links:
+          $ref: '#/components/schemas/LinkList'
+    LogStreamEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/LogStreamView'
     RulesConsoleView:
       type: object
       properties:

@@ -5,7 +5,7 @@
 
     <groupId>ro.puk3p.sentinel</groupId>
     <artifactId>ids-api-contract</artifactId>
-    <version>1.10.0</version>
+    <version>1.11.0</version>
     <packaging>jar</packaging>
 
     <name>ids-api-contract</name>

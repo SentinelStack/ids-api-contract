@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: IDS Platform Backend API
-  version: 1.10.0
+  version: 1.11.0
   description: >-
     API for the OpenWrt IDS/IPS platform backend (Sentinel). Exposes processed
     security telemetry produced by the edge agent: devices and heartbeats,
@@ -822,6 +822,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/AgentRulesetEnvelope'
 
+  /api/console/logs:
+    get:
+      tags:
+        - Console
+      summary: Unified log/event stream (Log Viewer)
+      description: >-
+        Merges real sources into one stream — the backend's own runtime logs,
+        recent alerts (edge detections) and device lifecycle events — plus KPIs
+        and pipeline integrity.
+      operationId: getLogStream
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 80
+      responses:
+        '200':
+          description: Log stream
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogStreamEnvelope'
+
   /api/console/topology/node/{deviceId}:
     get:
       tags:
@@ -1366,6 +1392,16 @@ components:
       $ref: '../schemas/Console.yaml#/NodeDetailView'
     NodeDetailEnvelope:
       $ref: '../schemas/Console.yaml#/NodeDetailEnvelope'
+    LogKpis:
+      $ref: '../schemas/Console.yaml#/LogKpis'
+    LogEntry:
+      $ref: '../schemas/Console.yaml#/LogEntry'
+    PipelineComponent:
+      $ref: '../schemas/Console.yaml#/PipelineComponent'
+    LogStreamView:
+      $ref: '../schemas/Console.yaml#/LogStreamView'
+    LogStreamEnvelope:
+      $ref: '../schemas/Console.yaml#/LogStreamEnvelope'
     RulesConsoleView:
       $ref: '../schemas/Rules.yaml#/RulesConsoleView'
     RulesConsoleEnvelope:

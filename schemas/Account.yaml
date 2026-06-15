@@ -31,13 +31,75 @@ RegisterRequest:
 
 LoginResponse:
   type: object
-  required: [token, account]
+  description: >-
+    On success carries token + account. When the account has 2FA enabled, the
+    first step instead returns mfaRequired=true plus a short-lived mfaToken; the
+    client then POSTs /api/auth/mfa with the 6-digit code.
   properties:
     token:
       type: string
+      nullable: true
       description: "Signed JWT (HS256). Send as `Authorization: Bearer <token>`."
     account:
       $ref: '#/AccountView'
+    mfaRequired:
+      type: boolean
+      default: false
+    mfaToken:
+      type: string
+      nullable: true
+      description: Short-lived (5 min) challenge token for the 2FA second step.
+
+MfaLoginRequest:
+  type: object
+  required: [mfaToken, code]
+  properties:
+    mfaToken:
+      type: string
+      description: The mfaToken returned by /api/auth/login.
+    code:
+      type: string
+      pattern: '^[0-9]{6}$'
+      description: 6-digit TOTP code from the authenticator app.
+
+GoogleLoginRequest:
+  type: object
+  required: [idToken]
+  properties:
+    idToken:
+      type: string
+      description: Google Identity Services ID token (JWT) from the browser.
+
+MfaSetupResponse:
+  type: object
+  required: [secret, otpauthUri, qrDataUri]
+  properties:
+    secret:
+      type: string
+      description: Base32 TOTP secret for manual entry.
+    otpauthUri:
+      type: string
+      example: otpauth://totp/Sentinel%20(george.lupu)?secret=...&issuer=Sentinel
+    qrDataUri:
+      type: string
+      description: PNG data URI (`data:image/png;base64,...`) of the otpauth QR.
+
+MfaSetupResponseEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/MfaSetupResponse'
+
+MfaCodeRequest:
+  type: object
+  required: [code]
+  properties:
+    code:
+      type: string
+      pattern: '^[0-9]{6}$'
+      description: 6-digit TOTP code.
 
 PreferencesView:
   type: object
@@ -176,13 +238,6 @@ ChangePasswordRequest:
       maxLength: 128
       pattern: '^(?=.*[A-Za-z])(?=.*\d).{8,128}$'
       description: 8–128 characters, with at least one letter and one number.
-
-MfaRequest:
-  type: object
-  required: [enabled]
-  properties:
-    enabled:
-      type: boolean
 
 SessionView:
   type: object

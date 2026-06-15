@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: IDS Platform Backend API
-  version: 1.12.0
+  version: 1.13.0
   description: >-
     API for the OpenWrt IDS/IPS platform backend (Sentinel). Exposes processed
     security telemetry produced by the edge agent: devices and heartbeats,
@@ -85,11 +85,63 @@ paths:
               $ref: '#/components/schemas/LoginRequest'
       responses:
         '200':
-          description: Login succeeded; returns the token and account snapshot
+          description: >-
+            Either a token + account, or (when 2FA is enabled) mfaRequired=true
+            with a short-lived mfaToken to complete at /api/auth/mfa.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/LoginResponseEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/auth/mfa:
+    post:
+      tags:
+        - Auth
+      summary: Complete login with a TOTP code (2FA second step)
+      operationId: loginMfa
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaLoginRequest'
+      responses:
+        '200':
+          description: Verified; returns the token and account snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponseEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/auth/google:
+    post:
+      tags:
+        - Auth
+      summary: Sign in (or sign up) with a Google ID token
+      operationId: loginGoogle
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleLoginRequest'
+      responses:
+        '200':
+          description: >-
+            Authenticated (token + account), or mfaRequired=true if the linked
+            account also has 2FA enabled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -238,25 +290,69 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /api/account/mfa:
+  /api/account/mfa/setup:
     post:
       tags:
         - Account
-      summary: Enable or disable multi-factor authentication
-      operationId: setMfa
+      summary: Begin TOTP 2FA enrollment (returns secret + QR)
+      operationId: mfaSetup
+      responses:
+        '200':
+          description: A fresh TOTP secret with otpauth URI and QR data URI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaSetupResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/account/mfa/enable:
+    post:
+      tags:
+        - Account
+      summary: Confirm a TOTP code and switch 2FA on
+      operationId: mfaEnable
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MfaRequest'
+              $ref: '#/components/schemas/MfaCodeRequest'
       responses:
         '200':
-          description: Updated account
+          description: Updated account (mfaEnabled=true)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccountViewEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/account/mfa/disable:
+    post:
+      tags:
+        - Account
+      summary: Verify a TOTP code and switch 2FA off
+      operationId: mfaDisable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaCodeRequest'
+      responses:
+        '200':
+          description: Updated account (mfaEnabled=false)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountViewEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -1737,6 +1833,16 @@ components:
       $ref: '../schemas/Account.yaml#/LoginResponse'
     LoginResponseEnvelope:
       $ref: '../schemas/Account.yaml#/LoginResponseEnvelope'
+    MfaLoginRequest:
+      $ref: '../schemas/Account.yaml#/MfaLoginRequest'
+    GoogleLoginRequest:
+      $ref: '../schemas/Account.yaml#/GoogleLoginRequest'
+    MfaSetupResponse:
+      $ref: '../schemas/Account.yaml#/MfaSetupResponse'
+    MfaSetupResponseEnvelope:
+      $ref: '../schemas/Account.yaml#/MfaSetupResponseEnvelope'
+    MfaCodeRequest:
+      $ref: '../schemas/Account.yaml#/MfaCodeRequest'
     AccountView:
       $ref: '../schemas/Account.yaml#/AccountView'
     AccountViewEnvelope:
@@ -1751,8 +1857,6 @@ components:
       $ref: '../schemas/Account.yaml#/NotificationsRequest'
     ChangePasswordRequest:
       $ref: '../schemas/Account.yaml#/ChangePasswordRequest'
-    MfaRequest:
-      $ref: '../schemas/Account.yaml#/MfaRequest'
     SessionView:
       $ref: '../schemas/Account.yaml#/SessionView'
     SessionListEnvelope:

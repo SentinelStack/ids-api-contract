@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: IDS Platform Backend API
-  version: 1.12.0
+  version: 1.13.0
   description: |-
     API for the OpenWrt IDS/IPS platform backend (Sentinel). Exposes processed security telemetry produced by the edge agent: devices and heartbeats, alerts, aggregated traffic statistics and packet/forensics metadata.
     Also documents the dashboard console view models (`/api/console/*`), the incident actions (assign/contain), and the report-export endpoints (`/api/reports/*`, served by the ClickHouse-backed download service behind the same gateway).
@@ -69,11 +69,57 @@ paths:
               $ref: '#/components/schemas/LoginRequest'
       responses:
         '200':
-          description: Login succeeded; returns the token and account snapshot
+          description: Either a token + account, or (when 2FA is enabled) mfaRequired=true with a short-lived mfaToken to complete at /api/auth/mfa.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/LoginResponseEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/auth/mfa:
+    post:
+      tags:
+        - Auth
+      summary: Complete login with a TOTP code (2FA second step)
+      operationId: loginMfa
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaLoginRequest'
+      responses:
+        '200':
+          description: Verified; returns the token and account snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponseEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/auth/google:
+    post:
+      tags:
+        - Auth
+      summary: Sign in (or sign up) with a Google ID token
+      operationId: loginGoogle
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleLoginRequest'
+      responses:
+        '200':
+          description: Authenticated (token + account), or mfaRequired=true if the linked account also has 2FA enabled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /api/auth/register:
@@ -214,25 +260,67 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-  /api/account/mfa:
+  /api/account/mfa/setup:
     post:
       tags:
         - Account
-      summary: Enable or disable multi-factor authentication
-      operationId: setMfa
+      summary: Begin TOTP 2FA enrollment (returns secret + QR)
+      operationId: mfaSetup
+      responses:
+        '200':
+          description: A fresh TOTP secret with otpauth URI and QR data URI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaSetupResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/account/mfa/enable:
+    post:
+      tags:
+        - Account
+      summary: Confirm a TOTP code and switch 2FA on
+      operationId: mfaEnable
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MfaRequest'
+              $ref: '#/components/schemas/MfaCodeRequest'
       responses:
         '200':
-          description: Updated account
+          description: Updated account (mfaEnabled=true)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccountViewEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/account/mfa/disable:
+    post:
+      tags:
+        - Account
+      summary: Verify a TOTP code and switch 2FA off
+      operationId: mfaDisable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaCodeRequest'
+      responses:
+        '200':
+          description: Updated account (mfaEnabled=false)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountViewEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /api/account/sessions:
@@ -3116,15 +3204,21 @@ components:
           example: Jane Doe
     LoginResponse:
       type: object
-      required:
-        - token
-        - account
+      description: On success carries token + account. When the account has 2FA enabled, the first step instead returns mfaRequired=true plus a short-lived mfaToken; the client then POSTs /api/auth/mfa with the 6-digit code.
       properties:
         token:
           type: string
+          nullable: true
           description: 'Signed JWT (HS256). Send as `Authorization: Bearer <token>`.'
         account:
           $ref: '#/components/schemas/AccountView'
+        mfaRequired:
+          type: boolean
+          default: false
+        mfaToken:
+          type: string
+          nullable: true
+          description: Short-lived (5 min) challenge token for the 2FA second step.
     LoginResponseEnvelope:
       allOf:
         - $ref: '#/components/schemas/ApiResponse'
@@ -3132,6 +3226,59 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/LoginResponse'
+    MfaLoginRequest:
+      type: object
+      required:
+        - mfaToken
+        - code
+      properties:
+        mfaToken:
+          type: string
+          description: The mfaToken returned by /api/auth/login.
+        code:
+          type: string
+          pattern: ^[0-9]{6}$
+          description: 6-digit TOTP code from the authenticator app.
+    GoogleLoginRequest:
+      type: object
+      required:
+        - idToken
+      properties:
+        idToken:
+          type: string
+          description: Google Identity Services ID token (JWT) from the browser.
+    MfaSetupResponse:
+      type: object
+      required:
+        - secret
+        - otpauthUri
+        - qrDataUri
+      properties:
+        secret:
+          type: string
+          description: Base32 TOTP secret for manual entry.
+        otpauthUri:
+          type: string
+          example: otpauth://totp/Sentinel%20(george.lupu)?secret=...&issuer=Sentinel
+        qrDataUri:
+          type: string
+          description: PNG data URI (`data:image/png;base64,...`) of the otpauth QR.
+    MfaSetupResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/MfaSetupResponse'
+    MfaCodeRequest:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          pattern: ^[0-9]{6}$
+          description: 6-digit TOTP code.
     AccountView:
       type: object
       description: The authenticated operator's account and preferences.
@@ -3277,13 +3424,6 @@ components:
           maxLength: 128
           pattern: ^(?=.*[A-Za-z])(?=.*\d).{8,128}$
           description: 8–128 characters, with at least one letter and one number.
-    MfaRequest:
-      type: object
-      required:
-        - enabled
-      properties:
-        enabled:
-          type: boolean
     SessionView:
       type: object
       properties:

@@ -578,3 +578,52 @@ RuntimeLogListEnvelope:
                 $ref: '#/RuntimeLogLine'
             links:
               $ref: './Common.yaml#/LinkList'
+
+NodeDetection:
+  type: object
+  properties:
+    label:
+      type: string
+      example: Udp Flood Suspected
+    level:
+      type: string
+      enum: [critical, warning]
+
+NodeDetailView:
+  type: object
+  description: Live detail for a topology node, computed from real device + traffic + alerts.
+  properties:
+    deviceId:
+      type: string
+    name:
+      type: string
+    ip:
+      type: string
+    status:
+      type: string
+    statusTone:
+      type: string
+    load:
+      type: string
+      example: "41% CPU / 55% RAM"
+    risk:
+      type: string
+    riskTone:
+      type: string
+    activity:
+      type: string
+      example: "206 pkt/s | 13.5 KB/s"
+    detections:
+      type: array
+      items:
+        $ref: '#/NodeDetection'
+    links:
+      $ref: './Common.yaml#/LinkList'
+
+NodeDetailEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/NodeDetailView'

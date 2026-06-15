@@ -45,6 +45,20 @@ DeviceHeartbeatRequest:
       format: date-time
       nullable: true
       example: "2026-06-01T10:00:00Z"
+    cpuPercent:
+      type: integer
+      nullable: true
+      minimum: 0
+      maximum: 100
+      description: Router CPU utilisation reported by the agent.
+      example: 41
+    memPercent:
+      type: integer
+      nullable: true
+      minimum: 0
+      maximum: 100
+      description: Router memory utilisation reported by the agent.
+      example: 55
 
 DeviceResponse:
   type: object

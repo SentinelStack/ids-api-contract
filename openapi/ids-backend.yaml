@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: IDS Platform Backend API
-  version: 1.9.0
+  version: 1.10.0
   description: >-
     API for the OpenWrt IDS/IPS platform backend (Sentinel). Exposes processed
     security telemetry produced by the edge agent: devices and heartbeats,
@@ -822,6 +822,27 @@ paths:
               schema:
                 $ref: '#/components/schemas/AgentRulesetEnvelope'
 
+  /api/console/topology/node/{deviceId}:
+    get:
+      tags:
+        - Console
+      summary: Live detail for a device-backed topology node
+      description: >-
+        Real status, IP, load (CPU/RAM from the agent heartbeat), activity (from
+        the latest traffic window) and recent detections for a router.
+      operationId: getTopologyNode
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdPath'
+      responses:
+        '200':
+          description: Node detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeDetailEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /api/console/topology/events:
     get:
       tags:
@@ -1339,6 +1360,12 @@ components:
       $ref: '../schemas/Console.yaml#/RuntimeLogLine'
     RuntimeLogListEnvelope:
       $ref: '../schemas/Console.yaml#/RuntimeLogListEnvelope'
+    NodeDetection:
+      $ref: '../schemas/Console.yaml#/NodeDetection'
+    NodeDetailView:
+      $ref: '../schemas/Console.yaml#/NodeDetailView'
+    NodeDetailEnvelope:
+      $ref: '../schemas/Console.yaml#/NodeDetailEnvelope'
     RulesConsoleView:
       $ref: '../schemas/Rules.yaml#/RulesConsoleView'
     RulesConsoleEnvelope:

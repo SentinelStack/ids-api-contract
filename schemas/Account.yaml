@@ -118,19 +118,25 @@ AccountView:
 
 ProfileUpdateRequest:
   type: object
-  description: Partial profile update; omit a field to leave it unchanged.
+  description: Partial profile update; omit a field to leave it unchanged. Provided fields are validated.
   properties:
     fullName:
       type: string
+      minLength: 2
+      maxLength: 80
     email:
       type: string
       format: email
+      maxLength: 120
     phone:
       type: string
+      pattern: '^$|^[+]?[0-9 ()-]{7,20}$'
     language:
       type: string
+      maxLength: 40
     timezone:
       type: string
+      maxLength: 60
 
 PreferencesRequest:
   type: object
@@ -167,6 +173,9 @@ ChangePasswordRequest:
       type: string
       format: password
       minLength: 8
+      maxLength: 128
+      pattern: '^(?=.*[A-Za-z])(?=.*\d).{8,128}$'
+      description: 8–128 characters, with at least one letter and one number.
 
 MfaRequest:
   type: object

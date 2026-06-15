@@ -1,0 +1,263 @@
+LoginRequest:
+  type: object
+  required: [username, password]
+  properties:
+    username:
+      type: string
+      example: george.lupu
+    password:
+      type: string
+      format: password
+      example: AegisSOC!2026
+
+RegisterRequest:
+  type: object
+  required: [username, password]
+  properties:
+    username:
+      type: string
+      example: jane.doe
+    password:
+      type: string
+      format: password
+      minLength: 8
+    email:
+      type: string
+      format: email
+      example: jane.doe@aegis.local
+    fullName:
+      type: string
+      example: Jane Doe
+
+LoginResponse:
+  type: object
+  required: [token, account]
+  properties:
+    token:
+      type: string
+      description: "Signed JWT (HS256). Send as `Authorization: Bearer <token>`."
+    account:
+      $ref: '#/AccountView'
+
+PreferencesView:
+  type: object
+  properties:
+    theme:
+      type: string
+      example: Dark
+    density:
+      type: string
+      example: Compact
+    landingPage:
+      type: string
+      example: Overview
+    timeFormat:
+      type: string
+      example: 24-hour
+    autoRefresh:
+      type: boolean
+      example: true
+
+AccountView:
+  type: object
+  description: The authenticated operator's account and preferences.
+  required: [username, email, accountId]
+  properties:
+    username:
+      type: string
+      example: george.lupu
+    email:
+      type: string
+      format: email
+    fullName:
+      type: string
+      example: George Lupu
+    phone:
+      type: string
+      example: "+40 700 000 000"
+    role:
+      type: string
+      example: SOC Analyst
+    language:
+      type: string
+      example: English (UK)
+    timezone:
+      type: string
+      example: Europe/Bucharest
+    accountId:
+      type: string
+      example: USR-0142
+    mfaEnabled:
+      type: boolean
+    apiAccessEnabled:
+      type: boolean
+    sessionTimeoutMinutes:
+      type: integer
+      format: int32
+      example: 30
+    passwordChangedAt:
+      type: string
+      format: date-time
+      nullable: true
+    preferences:
+      $ref: '#/PreferencesView'
+    notifications:
+      type: object
+      description: Per-channel notification toggles keyed by channel name.
+      additionalProperties:
+        type: boolean
+      example:
+        critical: true
+        incident: true
+        weekly: true
+        email: true
+        push: false
+        maintenance: true
+    links:
+      $ref: './Common.yaml#/LinkList'
+
+ProfileUpdateRequest:
+  type: object
+  description: Partial profile update; omit a field to leave it unchanged.
+  properties:
+    fullName:
+      type: string
+    email:
+      type: string
+      format: email
+    phone:
+      type: string
+    language:
+      type: string
+    timezone:
+      type: string
+
+PreferencesRequest:
+  type: object
+  description: Partial preferences update; omit a field to leave it unchanged.
+  properties:
+    theme:
+      type: string
+    density:
+      type: string
+    landingPage:
+      type: string
+    timeFormat:
+      type: string
+    autoRefresh:
+      type: boolean
+
+NotificationsRequest:
+  type: object
+  required: [notifications]
+  properties:
+    notifications:
+      type: object
+      additionalProperties:
+        type: boolean
+
+ChangePasswordRequest:
+  type: object
+  required: [currentPassword, newPassword]
+  properties:
+    currentPassword:
+      type: string
+      format: password
+    newPassword:
+      type: string
+      format: password
+      minLength: 8
+
+MfaRequest:
+  type: object
+  required: [enabled]
+  properties:
+    enabled:
+      type: boolean
+
+SessionView:
+  type: object
+  properties:
+    id:
+      type: string
+      description: Opaque session id (JWT id / jti).
+    device:
+      type: string
+      example: Chrome on macOS
+    ip:
+      type: string
+      example: 81.196.10.4
+    createdAt:
+      type: string
+      format: date-time
+    lastSeenAt:
+      type: string
+      format: date-time
+    current:
+      type: boolean
+      description: True for the session making this request.
+
+AuditView:
+  type: object
+  properties:
+    at:
+      type: string
+      format: date-time
+    action:
+      type: string
+      example: Signed in
+    device:
+      type: string
+      example: Chrome on macOS
+    ip:
+      type: string
+      example: 81.196.10.4
+    status:
+      type: string
+      example: Success
+
+LoginResponseEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/LoginResponse'
+
+AccountViewEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/AccountView'
+
+SessionListEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/SessionView'
+            links:
+              $ref: './Common.yaml#/LinkList'
+
+AuditListEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/AuditView'
+            links:
+              $ref: './Common.yaml#/LinkList'

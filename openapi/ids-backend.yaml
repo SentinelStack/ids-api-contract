@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: IDS Platform Backend API
-  version: 1.11.0
+  version: 1.12.0
   description: >-
     API for the OpenWrt IDS/IPS platform backend (Sentinel). Exposes processed
     security telemetry produced by the edge agent: devices and heartbeats,
@@ -39,8 +39,15 @@ tags:
     description: Filtered alert exports (CSV/JSON), served by the ClickHouse download service
   - name: Rules
     description: OpenWrt edge detection rules and the agent-facing ruleset routers pull
+  - name: Auth
+    description: Operator authentication (login/register/logout) issuing JWTs
+  - name: Account
+    description: The authenticated operator's profile, preferences, sessions and audit log
 
-security: []
+# Every endpoint requires a bearer JWT by default. Operations that are public
+# (login/register, the API index, actuator) or agent-only override this locally.
+security:
+  - bearerAuth: []
 
 paths:
   /api:
@@ -49,6 +56,7 @@ paths:
         - Index
       summary: API hypermedia entry point
       operationId: getApiIndex
+      security: []
       responses:
         '200':
           description: Top-level links to the available collections and actions
@@ -62,12 +70,261 @@ paths:
                       data:
                         $ref: '#/components/schemas/IndexResponse'
 
+  /api/auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Authenticate an operator and issue a JWT
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login succeeded; returns the token and account snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponseEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/auth/register:
+    post:
+      tags:
+        - Auth
+      summary: Register a new operator account
+      operationId: register
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '200':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountViewEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/auth/logout:
+    post:
+      tags:
+        - Auth
+      summary: Revoke the current session
+      operationId: logout
+      responses:
+        '200':
+          description: Session revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/account:
+    get:
+      tags:
+        - Account
+      summary: Get the authenticated operator's account
+      operationId: getAccount
+      responses:
+        '200':
+          description: The current account, preferences and notification toggles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountViewEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/account/profile:
+    put:
+      tags:
+        - Account
+      summary: Update profile fields
+      operationId: updateProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdateRequest'
+      responses:
+        '200':
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountViewEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/account/preferences:
+    put:
+      tags:
+        - Account
+      summary: Update console preferences
+      operationId: updatePreferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreferencesRequest'
+      responses:
+        '200':
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountViewEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/account/notifications:
+    put:
+      tags:
+        - Account
+      summary: Update notification toggles
+      operationId: updateNotifications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationsRequest'
+      responses:
+        '200':
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountViewEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/account/password:
+    post:
+      tags:
+        - Account
+      summary: Change the operator's password
+      operationId: changePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/account/mfa:
+    post:
+      tags:
+        - Account
+      summary: Enable or disable multi-factor authentication
+      operationId: setMfa
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaRequest'
+      responses:
+        '200':
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountViewEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/account/sessions:
+    get:
+      tags:
+        - Account
+      summary: List the operator's active sessions
+      operationId: listSessions
+      responses:
+        '200':
+          description: Active sessions, newest first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/account/sessions/revoke-others:
+    post:
+      tags:
+        - Account
+      summary: Revoke every session except the current one
+      operationId: revokeOtherSessions
+      responses:
+        '200':
+          description: Other sessions revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/account/activity:
+    get:
+      tags:
+        - Account
+      summary: Recent account activity (audit log)
+      operationId: accountActivity
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 8
+      responses:
+        '200':
+          description: Recent audit entries, newest first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/devices/register:
     post:
       tags:
         - Devices
       summary: Register a device (or update an existing one)
       operationId: registerDevice
+      security:
+        - apiKeyAuth: []
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -90,6 +347,9 @@ paths:
         - Devices
       summary: Record a device heartbeat
       operationId: deviceHeartbeat
+      security:
+        - apiKeyAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/DeviceIdPath'
       requestBody:
@@ -217,6 +477,9 @@ paths:
         - Alerts
       summary: Create an alert
       operationId: createAlert
+      security:
+        - apiKeyAuth: []
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -363,6 +626,9 @@ paths:
         - Traffic
       summary: Store a traffic-statistics window
       operationId: createTrafficStats
+      security:
+        - apiKeyAuth: []
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -812,6 +1078,10 @@ paths:
         plus global rules; threshold keys (udpPacketThreshold, tcpPacketThreshold,
         byteThreshold) drive the detector directly.
       operationId: getAgentRuleset
+      security:
+        - apiKeyAuth: []
+        - apiKeyQueryAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/DeviceIdPath'
       responses:
@@ -1069,6 +1339,30 @@ paths:
           $ref: '#/components/responses/BadRequest'
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        Operator JWT obtained from `POST /api/auth/login`. Send as
+        `Authorization: Bearer <token>`.
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: >-
+        Pre-shared edge-agent key. Accepted on the agent ingest endpoints in
+        place of a bearer token. The ruleset GET also accepts it as an `apiKey`
+        query parameter, since the agent's fetcher cannot set request headers.
+    apiKeyQueryAuth:
+      type: apiKey
+      in: query
+      name: apiKey
+      description: >-
+        Edge-agent key supplied as a query parameter. Used only by the ruleset
+        GET, whose fetcher (`uclient-fetch`) cannot set request headers.
+
   parameters:
     DeviceIdPath:
       name: deviceId
@@ -1263,6 +1557,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing, invalid or expired credentials
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
 
   schemas:
     ApiResponse:
@@ -1428,3 +1728,36 @@ components:
       $ref: '../schemas/Rules.yaml#/AgentRuleset'
     AgentRulesetEnvelope:
       $ref: '../schemas/Rules.yaml#/AgentRulesetEnvelope'
+
+    LoginRequest:
+      $ref: '../schemas/Account.yaml#/LoginRequest'
+    RegisterRequest:
+      $ref: '../schemas/Account.yaml#/RegisterRequest'
+    LoginResponse:
+      $ref: '../schemas/Account.yaml#/LoginResponse'
+    LoginResponseEnvelope:
+      $ref: '../schemas/Account.yaml#/LoginResponseEnvelope'
+    AccountView:
+      $ref: '../schemas/Account.yaml#/AccountView'
+    AccountViewEnvelope:
+      $ref: '../schemas/Account.yaml#/AccountViewEnvelope'
+    PreferencesView:
+      $ref: '../schemas/Account.yaml#/PreferencesView'
+    ProfileUpdateRequest:
+      $ref: '../schemas/Account.yaml#/ProfileUpdateRequest'
+    PreferencesRequest:
+      $ref: '../schemas/Account.yaml#/PreferencesRequest'
+    NotificationsRequest:
+      $ref: '../schemas/Account.yaml#/NotificationsRequest'
+    ChangePasswordRequest:
+      $ref: '../schemas/Account.yaml#/ChangePasswordRequest'
+    MfaRequest:
+      $ref: '../schemas/Account.yaml#/MfaRequest'
+    SessionView:
+      $ref: '../schemas/Account.yaml#/SessionView'
+    SessionListEnvelope:
+      $ref: '../schemas/Account.yaml#/SessionListEnvelope'
+    AuditView:
+      $ref: '../schemas/Account.yaml#/AuditView'
+    AuditListEnvelope:
+      $ref: '../schemas/Account.yaml#/AuditListEnvelope'

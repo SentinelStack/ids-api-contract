@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: IDS Platform Backend API
-  version: 1.14.0
+  version: 1.15.0
   description: >-
     API for the OpenWrt IDS/IPS platform backend (Sentinel). Exposes processed
     security telemetry produced by the edge agent: devices and heartbeats,
@@ -35,6 +35,8 @@ tags:
     description: Packet-level forensic metadata
   - name: Dns
     description: DNS destination telemetry ingest and the operator destinations view
+  - name: Clients
+    description: Connected-client roster ingest and the operator clients view
   - name: Console
     description: Pre-computed, page-specific view models for the dashboard
   - name: Reports
@@ -820,6 +822,36 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
+  /api/clients:
+    post:
+      tags:
+        - Clients
+      summary: Ingest the connected-client roster
+      description: >-
+        One batched POST per 5-second window from the edge agent, carrying the
+        currently-known LAN clients read from the router's dnsmasq DHCP leases.
+        Each client is upserted by (deviceId, mac). The agent does not POST when
+        the roster is empty.
+      operationId: createClients
+      security:
+        - apiKeyAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientBatchRequest'
+      responses:
+        '201':
+          description: Clients stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientIngestAckEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
   /api/forensics/packets:
     post:
       tags:
@@ -1054,6 +1086,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DestinationsViewEnvelope'
+
+  /api/console/clients:
+    get:
+      tags:
+        - Console
+      summary: Get the connected-clients view model
+      description: >-
+        The connected-client roster joined with recent DNS activity (~5 min) per
+        client: a headline summary plus per-client rows ordered online-first,
+        then descending by query count.
+      operationId: getClientsView
+      responses:
+        '200':
+          description: Clients view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientsViewEnvelope'
 
   /api/rules:
     get:
@@ -1798,6 +1848,23 @@ components:
       $ref: '../schemas/Dns.yaml#/DestinationsView'
     DestinationsViewEnvelope:
       $ref: '../schemas/Dns.yaml#/DestinationsViewEnvelope'
+
+    ClientItem:
+      $ref: '../schemas/Clients.yaml#/ClientItem'
+    ClientBatchRequest:
+      $ref: '../schemas/Clients.yaml#/ClientBatchRequest'
+    ClientIngestAck:
+      $ref: '../schemas/Clients.yaml#/ClientIngestAck'
+    ClientIngestAckEnvelope:
+      $ref: '../schemas/Clients.yaml#/ClientIngestAckEnvelope'
+    ClientsSummary:
+      $ref: '../schemas/Clients.yaml#/ClientsSummary'
+    ClientRow:
+      $ref: '../schemas/Clients.yaml#/ClientRow'
+    ClientsView:
+      $ref: '../schemas/Clients.yaml#/ClientsView'
+    ClientsViewEnvelope:
+      $ref: '../schemas/Clients.yaml#/ClientsViewEnvelope'
 
     DateRange:
       $ref: '../schemas/Reports.yaml#/DateRange'

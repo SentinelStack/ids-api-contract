@@ -33,6 +33,7 @@ jobs:
           test -f schemas/Traffic.yaml
           test -f schemas/Forensics.yaml
           test -f schemas/Dns.yaml
+          test -f schemas/Clients.yaml
           test -f schemas/Reports.yaml
           test -f schemas/Console.yaml
           test -f examples/alert-example.json

@@ -160,6 +160,13 @@ ClientDomains:
     clientIp:
       type: string
       example: "192.168.1.177"
+    name:
+      type: string
+      nullable: true
+      description: >-
+        Device name for this client IP, looked up from the clients roster, or
+        null when unknown.
+      example: "S20-FE-al-utilizatorului-Timofte"
     queryCount:
       type: integer
       format: int32

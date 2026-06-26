@@ -1,0 +1,162 @@
+# Connected-client roster. The edge agent reads the dnsmasq DHCP leases on the
+# router and POSTs the currently-known LAN clients to the backend in 5-second
+# windows; the backend upserts them by (deviceId, mac) and the operator console
+# surfaces a roster enriched with recent DNS activity per client.
+
+# ── Agent ingest ─────────────────────────────────────────────────────────────
+ClientItem:
+  type: object
+  required:
+    - ip
+    - mac
+    - online
+  properties:
+    ip:
+      type: string
+      example: "192.168.1.155"
+    mac:
+      type: string
+      example: "46:7e:bf:19:78:0b"
+    name:
+      type: string
+      nullable: true
+      description: >-
+        Lease hostname for the client, or null/empty when unknown (dnsmasq
+        reports "*" for leases without a hostname).
+      example: "S20-FE-al-utilizatorului-Timofte"
+    online:
+      type: boolean
+      description: Whether the client currently holds an active DHCP lease.
+      example: true
+
+ClientBatchRequest:
+  type: object
+  required:
+    - deviceId
+    - timestamp
+    - clients
+  properties:
+    deviceId:
+      type: string
+      example: "edge-router-01"
+    timestamp:
+      type: string
+      format: date-time
+      description: Window end, ISO-8601 UTC.
+      example: "2026-06-25T21:42:13Z"
+    clients:
+      type: array
+      description: >-
+        The currently-known LAN clients. The agent skips the POST when this is
+        empty.
+      items:
+        $ref: '#/ClientItem'
+
+ClientIngestAck:
+  type: object
+  required:
+    - saved
+  properties:
+    saved:
+      type: integer
+      format: int32
+      description: Number of client rows upserted from the batch.
+      example: 1
+
+ClientIngestAckEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/ClientIngestAck'
+
+# ── Operator clients view ────────────────────────────────────────────────────
+# The roster is joined with recent DNS activity (~5 min) keyed by clientIp ==
+# client.ip; `queryCount` and `topDestination` are derived, not stored. Rows are
+# ordered online-first, then descending by query count.
+
+ClientsSummary:
+  type: object
+  description: Headline totals across the client roster.
+  required:
+    - total
+    - online
+  properties:
+    total:
+      type: integer
+      format: int32
+      description: Total clients in the roster.
+      example: 12
+    online:
+      type: integer
+      format: int32
+      description: Count of clients currently online.
+      example: 8
+
+ClientRow:
+  type: object
+  description: One roster client enriched with recent DNS activity.
+  required:
+    - ip
+    - mac
+    - online
+    - lastSeen
+    - queryCount
+    - topDestination
+  properties:
+    name:
+      type: string
+      nullable: true
+      description: Device name for this client, or null when unknown.
+      example: "S20-FE-al-utilizatorului-Timofte"
+    ip:
+      type: string
+      example: "192.168.1.155"
+    mac:
+      type: string
+      example: "46:7e:bf:19:78:0b"
+    online:
+      type: boolean
+      example: true
+    lastSeen:
+      type: string
+      format: date-time
+      description: When this client was most recently observed.
+    queryCount:
+      type: integer
+      format: int32
+      description: Recent DNS lookups attributed to this client (~5 min).
+      example: 128
+    topDestination:
+      type: string
+      description: The client's single most-queried recent domain.
+      example: "snapchat.com"
+
+ClientsView:
+  type: object
+  description: >-
+    The connected-client roster: headline summary plus a per-client list
+    enriched with recent DNS activity (online first, then descending by query
+    count).
+  required:
+    - summary
+    - clients
+  properties:
+    summary:
+      $ref: '#/ClientsSummary'
+    clients:
+      type: array
+      description: Roster clients, online first then descending by query count.
+      items:
+        $ref: '#/ClientRow'
+    links:
+      $ref: './Common.yaml#/LinkList'
+
+ClientsViewEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/ClientsView'

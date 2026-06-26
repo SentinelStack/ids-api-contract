@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: IDS Platform Backend API
-  version: 1.13.0
+  version: 1.14.0
   description: >-
     API for the OpenWrt IDS/IPS platform backend (Sentinel). Exposes processed
     security telemetry produced by the edge agent: devices and heartbeats,
@@ -33,6 +33,8 @@ tags:
     description: Aggregated traffic statistics
   - name: Forensics
     description: Packet-level forensic metadata
+  - name: Dns
+    description: DNS destination telemetry ingest and the operator destinations view
   - name: Console
     description: Pre-computed, page-specific view models for the dashboard
   - name: Reports
@@ -789,6 +791,35 @@ paths:
               schema:
                 $ref: '#/components/schemas/TrafficSummaryEnvelope'
 
+  /api/dns/queries:
+    post:
+      tags:
+        - Dns
+      summary: Ingest a batched window of DNS lookups
+      description: >-
+        One batched POST per 5-second window from the edge agent. Each item in
+        `queries` is persisted as a separate DNS query row. The agent does not
+        POST when the window is empty.
+      operationId: createDnsQueries
+      security:
+        - apiKeyAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DnsQueryBatchRequest'
+      responses:
+        '201':
+          description: DNS queries stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DnsIngestAckEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
   /api/forensics/packets:
     post:
       tags:
@@ -1006,6 +1037,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RulesConsoleEnvelope'
+
+  /api/console/destinations:
+    get:
+      tags:
+        - Console
+      summary: Get the DNS destinations view model
+      description: >-
+        Aggregated view of observed DNS lookups: recent lookups (newest first),
+        top domains by count, and a per-client domain breakdown.
+      operationId: getDestinationsView
+      responses:
+        '200':
+          description: Destinations view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestinationsViewEnvelope'
 
   /api/rules:
     get:
@@ -1727,6 +1775,29 @@ components:
       $ref: '../schemas/Forensics.yaml#/PacketSummaryPageEnvelope'
     ForensicsTimelinePageEnvelope:
       $ref: '../schemas/Forensics.yaml#/ForensicsTimelinePageEnvelope'
+
+    DnsQueryItem:
+      $ref: '../schemas/Dns.yaml#/DnsQueryItem'
+    DnsQueryBatchRequest:
+      $ref: '../schemas/Dns.yaml#/DnsQueryBatchRequest'
+    DnsIngestAck:
+      $ref: '../schemas/Dns.yaml#/DnsIngestAck'
+    DnsIngestAckEnvelope:
+      $ref: '../schemas/Dns.yaml#/DnsIngestAckEnvelope'
+    DestinationRow:
+      $ref: '../schemas/Dns.yaml#/DestinationRow'
+    DomainHit:
+      $ref: '../schemas/Dns.yaml#/DomainHit'
+    CategoryCount:
+      $ref: '../schemas/Dns.yaml#/CategoryCount'
+    Summary:
+      $ref: '../schemas/Dns.yaml#/Summary'
+    ClientDomains:
+      $ref: '../schemas/Dns.yaml#/ClientDomains'
+    DestinationsView:
+      $ref: '../schemas/Dns.yaml#/DestinationsView'
+    DestinationsViewEnvelope:
+      $ref: '../schemas/Dns.yaml#/DestinationsViewEnvelope'
 
     DateRange:
       $ref: '../schemas/Reports.yaml#/DateRange'

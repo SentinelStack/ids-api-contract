@@ -1,0 +1,253 @@
+# DNS destination telemetry. The edge agent batches the DNS lookups observed in
+# each 5-second window and POSTs them to the backend; the operator console then
+# surfaces an aggregated "destinations" view (recent lookups, top domains, and a
+# per-client breakdown).
+
+# ── Agent ingest ─────────────────────────────────────────────────────────────
+DnsQueryItem:
+  type: object
+  required:
+    - clientIp
+    - domain
+    - count
+  properties:
+    clientIp:
+      type: string
+      example: "192.168.1.177"
+    domain:
+      type: string
+      example: "snapchat.com"
+    count:
+      type: integer
+      format: int32
+      minimum: 1
+      example: 3
+
+DnsQueryBatchRequest:
+  type: object
+  required:
+    - deviceId
+    - timestamp
+    - windowSeconds
+    - queries
+  properties:
+    deviceId:
+      type: string
+      example: "edge-router-01"
+    timestamp:
+      type: string
+      format: date-time
+      description: Window end, ISO-8601 UTC.
+      example: "2026-06-25T21:42:13Z"
+    windowSeconds:
+      type: integer
+      format: int32
+      minimum: 1
+      example: 5
+    queries:
+      type: array
+      items:
+        $ref: '#/DnsQueryItem'
+
+DnsIngestAck:
+  type: object
+  required:
+    - saved
+  properties:
+    saved:
+      type: integer
+      format: int32
+      description: Number of DNS query rows persisted from the batch.
+      example: 1
+
+DnsIngestAckEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/DnsIngestAck'
+
+# ── Operator destinations view ───────────────────────────────────────────────
+# Domains are classified server-side (case-insensitive substring on the host),
+# checking the tracker list first; `category`/`tracker` are derived, not stored.
+
+DomainHit:
+  type: object
+  description: >-
+    A domain with its observed hit count and server-side classification
+    (`category` plus a `tracker` flag). Reused for top domains and the
+    per-client breakdown.
+  required:
+    - domain
+    - count
+    - category
+    - tracker
+  properties:
+    domain:
+      type: string
+      example: "snapchat.com"
+    count:
+      type: integer
+      format: int32
+      description: Number of DNS lookups observed for this domain.
+      example: 42
+    category:
+      type: string
+      description: >-
+        Classification bucket (e.g. Social, Video, Search, Apple, Google,
+        Shopping, CDN, "Ads & Trackers", Other).
+      example: Social
+    tracker:
+      type: boolean
+      description: True when the domain matches a known ad/tracker host.
+      example: false
+
+CategoryCount:
+  type: object
+  description: Aggregated lookup count for one classification category.
+  required:
+    - category
+    - count
+  properties:
+    category:
+      type: string
+      example: Social
+    count:
+      type: integer
+      format: int32
+      example: 318
+
+Summary:
+  type: object
+  description: Headline totals across the whole destinations view.
+  required:
+    - totalQueries
+    - uniqueDomains
+    - activeClients
+    - trackerQueries
+  properties:
+    totalQueries:
+      type: integer
+      format: int32
+      description: Total DNS lookups across all clients.
+      example: 1240
+    uniqueDomains:
+      type: integer
+      format: int32
+      description: Count of distinct domains observed.
+      example: 87
+    activeClients:
+      type: integer
+      format: int32
+      description: Count of distinct client IPs observed.
+      example: 6
+    trackerQueries:
+      type: integer
+      format: int32
+      description: Sum of lookup counts for domains flagged as trackers.
+      example: 214
+
+ClientDomains:
+  type: object
+  description: A client IP with its lookup total and top domains.
+  required:
+    - clientIp
+    - queryCount
+    - topDomain
+    - domains
+  properties:
+    clientIp:
+      type: string
+      example: "192.168.1.177"
+    queryCount:
+      type: integer
+      format: int32
+      description: Total DNS lookups attributed to this client.
+      example: 128
+    topDomain:
+      type: string
+      description: The client's single most-queried domain.
+      example: "snapchat.com"
+    domains:
+      type: array
+      description: This client's most-queried domains (~8), descending by count.
+      items:
+        $ref: '#/DomainHit'
+
+DestinationRow:
+  type: object
+  description: One recent DNS lookup row, classified server-side.
+  required:
+    - timestamp
+    - clientIp
+    - domain
+    - count
+    - category
+    - tracker
+  properties:
+    timestamp:
+      type: string
+      format: date-time
+    clientIp:
+      type: string
+      example: "192.168.1.177"
+    domain:
+      type: string
+      example: "snapchat.com"
+    count:
+      type: integer
+      format: int32
+      example: 3
+    category:
+      type: string
+      example: Social
+    tracker:
+      type: boolean
+      example: false
+
+DestinationsView:
+  type: object
+  description: >-
+    Aggregated, classified view of observed DNS lookups: headline summary,
+    per-category and top-domain rollups, a per-client breakdown, and the most
+    recent lookups.
+  required:
+    - summary
+    - categories
+    - topDomains
+    - byClient
+    - recent
+  properties:
+    summary:
+      $ref: '#/Summary'
+    categories:
+      type: array
+      description: Lookup counts per classification category, descending by count.
+      items:
+        $ref: '#/CategoryCount'
+    topDomains:
+      type: array
+      description: Aggregated domains by count, descending (~15).
+      items:
+        $ref: '#/DomainHit'
+    byClient:
+      type: array
+      description: Per-client breakdown, clients descending by query count.
+      items:
+        $ref: '#/ClientDomains'
+    recent:
+      type: array
+      description: Most recent DNS lookups, newest first (~50).
+      items:
+        $ref: '#/DestinationRow'
+    links:
+      $ref: './Common.yaml#/LinkList'
+
+DestinationsViewEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/DestinationsView'

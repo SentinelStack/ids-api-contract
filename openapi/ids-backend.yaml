@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: IDS Platform Backend API
-  version: 1.15.0
+  version: 1.16.0
   description: >-
     API for the OpenWrt IDS/IPS platform backend (Sentinel). Exposes processed
     security telemetry produced by the edge agent: devices and heartbeats,
@@ -936,6 +936,37 @@ paths:
               schema:
                 $ref: '#/components/schemas/ForensicsTimelinePageEnvelope'
 
+  /api/forensics/packets/batch:
+    post:
+      tags:
+        - Forensics
+      summary: Bulk-ingest a sampled window of forensic packet summaries
+      description: >-
+        One batched POST per 5-second window from the edge agent, sent only when
+        at least one alert fired that window. Carries a sample (<=32) of the most
+        recent captured packets — including the offending/flood source. Each item
+        is persisted as a packet summary (alertId null); the incident forensics
+        view later correlates them by the alert's sourceIp.
+      operationId: createForensicsBatch
+      security:
+        - apiKeyAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForensicsBatchRequest'
+      responses:
+        '201':
+          description: Packet summaries stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForensicsIngestAckEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
   /api/alerts/analysts:
     get:
       tags:
@@ -1825,6 +1856,14 @@ components:
       $ref: '../schemas/Forensics.yaml#/PacketSummaryPageEnvelope'
     ForensicsTimelinePageEnvelope:
       $ref: '../schemas/Forensics.yaml#/ForensicsTimelinePageEnvelope'
+    ForensicsPacketItem:
+      $ref: '../schemas/Forensics.yaml#/ForensicsPacketItem'
+    ForensicsBatchRequest:
+      $ref: '../schemas/Forensics.yaml#/ForensicsBatchRequest'
+    ForensicsIngestAck:
+      $ref: '../schemas/Forensics.yaml#/ForensicsIngestAck'
+    ForensicsIngestAckEnvelope:
+      $ref: '../schemas/Forensics.yaml#/ForensicsIngestAckEnvelope'
 
     DnsQueryItem:
       $ref: '../schemas/Dns.yaml#/DnsQueryItem'

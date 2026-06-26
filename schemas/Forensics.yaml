@@ -180,3 +180,88 @@ ForensicsTimelinePageEnvelope:
       properties:
         data:
           $ref: '#/ForensicsTimelinePage'
+
+# ── Agent bulk forensics ingest ──────────────────────────────────────────────
+# The edge agent batches a sample (<=32) of the most recent captured packets and
+# POSTs them once per 5-second window, only when at least one alert fired that
+# window. The sample includes the offending/flood source. Each item is persisted
+# as a packet summary (alertId null); the incident forensics view later
+# correlates them by the alert's sourceIp.
+
+ForensicsPacketItem:
+  type: object
+  required:
+    - timestamp
+    - protocol
+    - sourceIp
+    - destinationIp
+    - sourcePort
+    - destinationPort
+    - packetSize
+  properties:
+    timestamp:
+      type: string
+      format: date-time
+      description: Packet capture time, ISO-8601 UTC.
+      example: "2026-06-25T21:42:13Z"
+    protocol:
+      type: string
+      enum:
+        - TCP
+        - UDP
+      example: UDP
+    sourceIp:
+      type: string
+      example: "1.2.3.4"
+    destinationIp:
+      type: string
+      example: "5.6.7.8"
+    sourcePort:
+      type: integer
+      format: int32
+      minimum: 0
+      example: 1234
+    destinationPort:
+      type: integer
+      format: int32
+      minimum: 0
+      example: 53
+    packetSize:
+      type: integer
+      format: int64
+      minimum: 0
+      example: 120
+
+ForensicsBatchRequest:
+  type: object
+  required:
+    - deviceId
+    - packets
+  properties:
+    deviceId:
+      type: string
+      example: "edge-router-01"
+    packets:
+      type: array
+      description: A sample (<=32) of the most recent captured packets.
+      items:
+        $ref: '#/ForensicsPacketItem'
+
+ForensicsIngestAck:
+  type: object
+  required:
+    - saved
+  properties:
+    saved:
+      type: integer
+      format: int32
+      description: Number of packet summaries persisted from the batch.
+      example: 32
+
+ForensicsIngestAckEnvelope:
+  allOf:
+    - $ref: './Common.yaml#/ApiResponse'
+    - type: object
+      properties:
+        data:
+          $ref: '#/ForensicsIngestAck'
